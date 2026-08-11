@@ -1,0 +1,10 @@
+pre-commit:
+  jobs:
+    - name: format
+      run: mise run format
+      stage_fixed: true
+
+pre-push:
+  jobs:
+    - name: checks
+      run: mise run checks

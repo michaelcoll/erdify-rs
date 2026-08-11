@@ -1,0 +1,53 @@
+[hooks]
+postinstall = "lefthook install"
+
+[env]
+# Database
+DATABASE_URL = "postgresql://postgres:password@localhost:5432/postgres"
+
+[tools]
+"cargo:cargo-nextest" = "latest"
+"cargo:cargo-llvm-cov" = "latest"
+"go:github.com/evilmartians/lefthook/v2" = "latest"
+
+[tasks.checks]
+description = "Runs all the checks for the project"
+depends = ["test", "lint", "format"]
+
+[tasks.clean]
+description = "Cleans the project artifacts"
+run = "cargo clean"
+
+[tasks.setup]
+description = "Setups the project for development"
+run = "cargo fetch"
+
+[tasks.test]
+description = "Runs the tests"
+run = "cargo nextest run --status-level slow --no-tests warn"
+
+[tasks.lint-clippy]
+run = "cargo clippy --locked --workspace --all-features --all-targets -- -A dead_code -D clippy::all"
+hide = true
+
+[tasks.lint]
+description = "Lints the project"
+depends = ["lint-clippy"]
+
+[tasks.format]
+description = "Formats the codebase"
+run = "cargo fmt"
+alias = ["f"]
+
+[tasks.build]
+description = "Builds the project"
+run = "cargo build"
+alias = ["b"]
+
+[tasks.upgrade]
+description = "Upgrades the project dependencies"
+run = "cargo update"
+
+[tasks.run]
+description = "Runs the CLI"
+run = "cargo run --"

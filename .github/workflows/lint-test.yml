@@ -1,0 +1,61 @@
+name: lint-test
+
+on: push
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lint:
+    name: Lints
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt, clippy
+
+      - name: Rustfmt Check
+        uses: actions-rust-lang/rustfmt@v1
+
+      - run: cargo clippy --locked --workspace --all-features --all-targets -- -A dead_code -D clippy::all
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+
+    container: rust:1-bullseye
+
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v7
+      - run: echo "DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres" > .env
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: llvm-tools
+
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - uses: taiki-e/install-action@nextest
+
+      - run: cargo llvm-cov nextest --status-level slow --no-tests warn --locked --all-features --tests --lcov --output-path lcov.info
+
+      - uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: coverage
+          files: lcov.info
+          disable_search: true

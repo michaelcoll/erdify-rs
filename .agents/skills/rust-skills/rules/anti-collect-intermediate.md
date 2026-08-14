@@ -94,7 +94,7 @@ let middle = indexed.get(indexed.len() / 2);
 
 | Instead of Collecting to... | Use                |
 | --------------------------- | ------------------ |
-| Check if empty              | `.any(             | _   | true)`or`.next().is_some()` |
+| Check if empty              | `.any(             |
 | Check if any match          | `.any(predicate)`  |
 | Check if all match          | `.all(predicate)`  |
 | Count elements              | `.count()`         |

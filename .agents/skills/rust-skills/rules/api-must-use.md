@@ -113,9 +113,9 @@ async fn fetch() -> Data { ... }
 
 ```toml
 [lints.clippy]
-must_use_candidate = "warn"      # Suggests where to add #[must_use]
-unused_must_use = "deny"          # Built-in, treat warnings as errors
-double_must_use = "warn"          # Redundant #[must_use]
+must_use_candidate = "warn" # Suggests where to add #[must_use]
+unused_must_use = "deny" # Built-in, treat warnings as errors
+double_must_use = "warn" # Redundant #[must_use]
 ```
 
 ## See Also

@@ -78,7 +78,7 @@ println!("GoodEvent: {} bytes", size_of::<GoodEvent>());  // ~16 bytes
 
 ```toml
 [lints.clippy]
-large_enum_variant = "warn"  # Warns when variants differ significantly
+large_enum_variant = "warn" # Warns when variants differ significantly
 ```
 
 ```rust

@@ -124,7 +124,7 @@ unsafe impl Sync for MyType {}
 [lints.clippy]
 undocumented_unsafe_blocks = "warn"
 # Also consider:
-multiple_unsafe_ops_per_block = "warn"  # One operation per block
+multiple_unsafe_ops_per_block = "warn" # One operation per block
 ```
 
 ## See Also

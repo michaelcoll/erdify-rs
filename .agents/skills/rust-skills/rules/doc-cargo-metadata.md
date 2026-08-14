@@ -87,9 +87,9 @@ Choose from [crates.io categories](https://crates.io/category_slugs):
 
 ```toml
 categories = [
-    "network-programming",
-    "web-programming::http-client",
-    "asynchronous",
+  "network-programming",
+  "web-programming::http-client",
+  "asynchronous",
 ]
 ```
 
@@ -113,18 +113,18 @@ Control what gets published:
 ```toml
 # Explicit include (whitelist)
 include = [
-    "src/**/*",
-    "Cargo.toml",
-    "LICENSE*",
-    "README.md",
-    "CHANGELOG.md",
+  "src/**/*",
+  "Cargo.toml",
+  "LICENSE*",
+  "README.md",
+  "CHANGELOG.md",
 ]
 
 # Or exclude (blacklist)
 exclude = [
-    "tests/fixtures/large-file.bin",
-    ".github/*",
-    "benches/*",
+  "tests/fixtures/large-file.bin",
+  ".github/*",
+  "benches/*",
 ]
 ```
 

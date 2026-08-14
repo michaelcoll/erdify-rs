@@ -80,7 +80,7 @@ fn process(_data: Vec<u8>) {}
 ## Key Points
 
 - **`error = ?err`**: uses `Debug` — prints the error and its `source()` chain for types that implement it.
-- **`format!("{err:#}")`** or `%format!(...)`: `anyhow::Error`'s alternate Display walks the full chain with `: ` separators.
+- **`format!("{err:#}")`** or `%format!(...)`: `anyhow::Error`'s alternate Display walks the full chain with `:` separators.
 - **Propagate, don't log**: use `?` and `.context()` / `.with_context()` at intermediate layers; log at the single handling boundary.
 - If you _must_ log at a non-handling layer (e.g., background task that discards the error), use `warn!` not `error!` to signal it was absorbed.
 - The `tracing-error` crate provides `SpanTrace` to capture the span context at the error site and attach it to the error type.

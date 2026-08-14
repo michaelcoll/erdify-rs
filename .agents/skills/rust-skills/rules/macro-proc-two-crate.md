@@ -54,11 +54,11 @@ my-workspace/
 # my-workspace/Cargo.toml
 [workspace]
 members = ["mycrate", "mycrate-derive"]
-resolver = "3"   # default for the 2024 edition; use "2" for 2021
+resolver = "3" # default for the 2024 edition; use "2" for 2021
 
 [workspace.dependencies]
 mycrate-derive = { path = "mycrate-derive", version = "0.1" }
-syn  = { version = "2", features = ["derive"] }
+syn = { version = "2", features = ["derive"] }
 quote = "1"
 proc-macro2 = "1"
 ```
@@ -71,10 +71,10 @@ version = "0.1.0"
 edition = "2024"
 
 [lib]
-proc-macro = true   # required — makes this a proc-macro crate
+proc-macro = true # required — makes this a proc-macro crate
 
 [dependencies]
-syn.workspace   = true
+syn.workspace = true
 quote.workspace = true
 proc-macro2.workspace = true
 ```

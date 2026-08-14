@@ -24,10 +24,10 @@ edition = "2021"
 name = "my-crate"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.80"  # oldest toolchain you commit to supporting
+rust-version = "1.80" # oldest toolchain you commit to supporting
 
 [workspace]
-resolver = "3"  # default for edition 2024; enables MSRV-aware dep resolution
+resolver = "3" # default for edition 2024; enables MSRV-aware dep resolution
 ```
 
 CI job pinning the MSRV toolchain (GitHub Actions example):

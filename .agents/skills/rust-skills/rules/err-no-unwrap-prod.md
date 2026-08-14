@@ -95,8 +95,8 @@ let port = config.get("port")
 ```toml
 # Cargo.toml
 [lints.clippy]
-unwrap_used = "warn"      # Warn on unwrap()
-expect_used = "warn"       # Also warn on expect() (stricter)
+unwrap_used = "warn" # Warn on unwrap()
+expect_used = "warn" # Also warn on expect() (stricter)
 ```
 
 ```rust

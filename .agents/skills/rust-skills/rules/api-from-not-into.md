@@ -119,7 +119,7 @@ let pos: PositiveInt = 42.try_into()?;  // Into-style (via blanket)
 
 ```toml
 [lints.clippy]
-from_over_into = "warn"  # Warns when implementing Into instead of From
+from_over_into = "warn" # Warns when implementing Into instead of From
 ```
 
 ```rust

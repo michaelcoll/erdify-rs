@@ -20,9 +20,9 @@ By default, Cargo splits code into multiple codegen units for parallel compilati
 ```toml
 # Cargo.toml - optimized for runtime performance
 [profile.release]
-codegen-units = 1  # Single unit = better optimization
-lto = true         # Link-time optimization
-opt-level = 3      # Maximum optimization
+codegen-units = 1 # Single unit = better optimization
+lto = true # Link-time optimization
+opt-level = 3 # Maximum optimization
 ```
 
 ## What codegen-units Affects
@@ -57,13 +57,13 @@ opt-level = 3      # Maximum optimization
 opt-level = 3
 lto = "fat"
 codegen-units = 1
-panic = "abort"      # Smaller binary, slight perf gain
-strip = true         # Smaller binary
+panic = "abort" # Smaller binary, slight perf gain
+strip = true # Smaller binary
 
 [profile.release-with-debug]
 # Performance with debugging ability
 inherits = "release"
-debug = true         # Keep debug symbols
+debug = true # Keep debug symbols
 strip = false
 
 [profile.bench]
@@ -89,13 +89,13 @@ cargo build --release
 ```toml
 # Fast debug builds
 [profile.dev]
-codegen-units = 256  # Maximum parallelism
+codegen-units = 256 # Maximum parallelism
 
 # Fast CI builds
 [profile.ci]
 inherits = "release"
-codegen-units = 16   # Balance compile time vs runtime
-lto = "thin"         # Faster than "fat"
+codegen-units = 16 # Balance compile time vs runtime
+lto = "thin" # Faster than "fat"
 
 # Production release
 [profile.production]

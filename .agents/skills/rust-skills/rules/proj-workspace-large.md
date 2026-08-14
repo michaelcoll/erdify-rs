@@ -47,12 +47,12 @@ my-app/
 ```toml
 # Root Cargo.toml
 [workspace]
-resolver = "3"  # default for the 2024 edition; use "2" for 2021
+resolver = "3" # default for the 2024 edition; use "2" for 2021
 members = [
-    "crates/core",
-    "crates/cli",
-    "crates/server",
-    "crates/common",
+  "crates/core",
+  "crates/cli",
+  "crates/server",
+  "crates/common",
 ]
 
 # Shared dependencies - all crates use same versions
@@ -91,7 +91,7 @@ uuid = "1.0"
 my-app-common = { path = "../common" }
 
 [lints]
-workspace = true  # Inherit workspace lints
+workspace = true # Inherit workspace lints
 ```
 
 ## When to Use Workspaces

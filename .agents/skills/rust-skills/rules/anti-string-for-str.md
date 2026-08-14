@@ -112,7 +112,7 @@ process(&some_string);
 
 ```toml
 [lints.clippy]
-ptr_arg = "warn"  # Catches &String, &Vec, &PathBuf
+ptr_arg = "warn" # Catches &String, &Vec, &PathBuf
 ```
 
 ## See Also

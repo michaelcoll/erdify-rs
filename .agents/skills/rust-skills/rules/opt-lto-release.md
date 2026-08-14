@@ -21,10 +21,10 @@ opt-level = 3
 # Cargo.toml - optimized release profile
 [profile.release]
 opt-level = 3
-lto = "fat"          # Maximum optimization
-codegen-units = 1    # Better optimization (single codegen unit)
-panic = "abort"      # Smaller binary, no unwind tables
-strip = true         # Remove symbols for smaller binary
+lto = "fat" # Maximum optimization
+codegen-units = 1 # Better optimization (single codegen unit)
+panic = "abort" # Smaller binary, no unwind tables
+strip = true # Remove symbols for smaller binary
 ```
 
 ## LTO Options Explained
@@ -81,12 +81,12 @@ strip = "symbols"
 
 ```toml
 [profile.release]
-opt-level = 3        # Maximum optimization
-lto = "fat"          # Link-time optimization
-codegen-units = 1    # Single codegen unit for better optimization
-panic = "abort"      # Remove panic unwinding code
-strip = true         # Strip symbols
-debug = false        # No debug info
+opt-level = 3 # Maximum optimization
+lto = "fat" # Link-time optimization
+codegen-units = 1 # Single codegen unit for better optimization
+panic = "abort" # Remove panic unwinding code
+strip = true # Strip symbols
+debug = false # No debug info
 
 # For benchmarking (need some debug info for profiling)
 [profile.bench]
@@ -100,7 +100,7 @@ opt-level = 0
 debug = true
 
 [profile.dev.package."*"]
-opt-level = 3        # Optimize dependencies even in dev
+opt-level = 3 # Optimize dependencies even in dev
 ```
 
 ## When to Use Each

@@ -1,3 +1,12 @@
-fn main() {
-    println!("erdify — coming soon");
+#[tokio::main]
+async fn main() {
+    let args = clap::Parser::parse();
+
+    match erdify_rs::run(args).await {
+        Ok(()) => std::process::exit(0),
+        Err(e) => {
+            eprintln!("erreur : {e}");
+            std::process::exit(1);
+        }
+    }
 }

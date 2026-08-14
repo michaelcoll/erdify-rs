@@ -9,6 +9,7 @@ DATABASE_URL = "postgresql://postgres:password@localhost:5432/postgres"
 "cargo:cargo-nextest" = "latest"
 "cargo:cargo-llvm-cov" = "latest"
 "go:github.com/evilmartians/lefthook/v2" = "latest"
+"cargo:dprint" = "latest"
 
 [tasks.checks]
 description = "Runs all the checks for the project"
@@ -36,7 +37,7 @@ depends = ["lint-clippy"]
 
 [tasks.format]
 description = "Formats the codebase"
-run = "cargo fmt"
+run = ["cargo fmt", "dprint fmt"]
 alias = ["f"]
 
 [tasks.build]

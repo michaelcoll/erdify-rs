@@ -179,7 +179,7 @@ impl UserService {
 ```toml
 [dev-dependencies]
 mockall = "0.11"
-async-trait = "0.1"  # For async trait mocking
+async-trait = "0.1" # For async trait mocking
 ```
 
 ## See Also

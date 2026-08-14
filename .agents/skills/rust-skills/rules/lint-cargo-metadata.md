@@ -39,8 +39,8 @@ version = "0.1.0"
 # WARN: feature used but not defined
 # WARN: dependency version not specified
 [dependencies]
-serde = "*"  # Bad: any version
-tokio = { git = "..." }  # WARN for published crates
+serde = "*" # Bad: any version
+tokio = { git = "..." } # WARN for published crates
 ```
 
 ### Feature Issues
@@ -48,12 +48,12 @@ tokio = { git = "..." }  # WARN for published crates
 ```toml
 # WARN: negative_feature_names
 [features]
-no-std = []  # Should be: std = [] (opt-out vs opt-in)
+no-std = [] # Should be: std = [] (opt-out vs opt-in)
 
 # WARN: redundant_feature_names
 [features]
 default = ["feature-a"]
-feature-a = []  # Feature name matches crate name
+feature-a = [] # Feature name matches crate name
 ```
 
 ## Notable Lints
@@ -93,7 +93,7 @@ tokio = { version = "1.0", features = ["full"] }
 
 [features]
 default = ["std"]
-std = []  # Opt-out, not no-std opt-in
+std = [] # Opt-out, not no-std opt-in
 
 [lints.clippy]
 cargo = "warn"
@@ -120,7 +120,7 @@ For internal/unpublished crates:
 
 ```toml
 [lints.clippy]
-cargo = "allow"  # Not publishing, metadata not needed
+cargo = "allow" # Not publishing, metadata not needed
 ```
 
 Or selectively:
@@ -128,7 +128,7 @@ Or selectively:
 ```toml
 [lints.clippy]
 cargo = "warn"
-multiple_crate_versions = "allow"  # Acceptable in this project
+multiple_crate_versions = "allow" # Acceptable in this project
 ```
 
 ## See Also

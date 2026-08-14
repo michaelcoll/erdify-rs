@@ -91,7 +91,7 @@ fn main() {
 | Situation                                                 | Verdict                          |
 | --------------------------------------------------------- | -------------------------------- |
 | Arithmetic on a numeric newtype or geometric type         | Implement                        |
-| Set operations (`                                         | `for union,`&` for intersection) | Implement |
+| Set operations (`                                         | `for union,`&` for intersection) |
 | String concatenation on a custom string type              | Implement                        |
 | `Index`/`IndexMut` on a container that holds items        | Implement                        |
 | `+` or `*` with visible side effects                      | Never                            |

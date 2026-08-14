@@ -111,7 +111,7 @@ process(b"bytes");           // Byte string
 
 ```toml
 [lints.clippy]
-ptr_arg = "warn"  # Catches &Vec, &String, &PathBuf
+ptr_arg = "warn" # Catches &Vec, &String, &PathBuf
 ```
 
 ## See Also

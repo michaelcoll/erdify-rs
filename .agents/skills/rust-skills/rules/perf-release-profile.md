@@ -20,11 +20,11 @@ codegen-units = 16
 
 ```toml
 [profile.release]
-opt-level = 3          # Maximum optimization
-lto = "fat"            # Full link-time optimization
-codegen-units = 1      # Better optimization, slower compile
-panic = "abort"        # Smaller binary, no unwinding
-strip = true           # Remove symbols
+opt-level = 3 # Maximum optimization
+lto = "fat" # Full link-time optimization
+codegen-units = 1 # Better optimization, slower compile
+panic = "abort" # Smaller binary, no unwinding
+strip = true # Remove symbols
 
 [profile.release.package."*"]
 # Keep dependencies optimized even if main crate changes
@@ -104,9 +104,9 @@ opt-level = 3
 ```toml
 [profile.bench]
 inherits = "release"
-debug = true      # For profiling
-strip = false     # Keep symbols for flamegraphs
-lto = "fat"       # Consistent with release-prod
+debug = true # For profiling
+strip = false # Keep symbols for flamegraphs
+lto = "fat" # Consistent with release-prod
 ```
 
 ## Size vs Speed Trade-offs

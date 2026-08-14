@@ -43,7 +43,7 @@ pub fn do_thing() {}
 name = "my-crate"
 version = "0.1.0"
 edition = "2024"
-readme = "README.md"          # crates.io landing page
+readme = "README.md" # crates.io landing page
 documentation = "https://docs.rs/my-crate"
 ```
 
@@ -66,7 +66,7 @@ let x = long_running_operation();
 ```
 ````
 
-For TOML or shell blocks already tagged with their language (` ```toml `, ` ```bash `), rustdoc ignores them automatically — no extra annotation needed.
+For TOML or shell blocks already tagged with their language (`` ```toml ``, `` ```bash ``), rustdoc ignores them automatically — no extra annotation needed.
 
 ## See Also
 

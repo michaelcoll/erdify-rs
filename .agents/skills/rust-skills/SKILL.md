@@ -428,7 +428,7 @@ Reference these guidelines when:
 - [`doc-panics-section`](rules/doc-panics-section.md) - Include `# Panics` section for functions that can panic
 - [`doc-safety-section`](rules/doc-safety-section.md) - Include `# Safety` section for unsafe functions
 - [`doc-question-mark`](rules/doc-question-mark.md) - Use `?` in examples, not `.unwrap()`
-- [`doc-hidden-setup`](rules/doc-hidden-setup.md) - Use `# ` prefix to hide example setup code
+- [`doc-hidden-setup`](rules/doc-hidden-setup.md) - Use `#` prefix to hide example setup code
 - [`doc-intra-links`](rules/doc-intra-links.md) - Use intra-doc links to reference types and items
 - [`doc-link-types`](rules/doc-link-types.md) - Use intra-doc links to connect related types and functions
 - [`doc-cargo-metadata`](rules/doc-cargo-metadata.md) - Fill `Cargo.toml` metadata for published crates
@@ -546,7 +546,7 @@ opt-level = 0
 debug = true
 
 [profile.dev.package."*"]
-opt-level = 3  # Optimize dependencies in dev
+opt-level = 3 # Optimize dependencies in dev
 ```
 
 ---

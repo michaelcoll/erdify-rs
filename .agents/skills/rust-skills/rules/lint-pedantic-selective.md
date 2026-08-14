@@ -22,11 +22,11 @@ The `clippy::pedantic` group contains opinionated lints that aren't universally 
 pedantic = "warn"
 
 # Disable noisy ones
-missing_errors_doc = "allow"      # Document errors separately
-missing_panics_doc = "allow"      # Document panics separately
+missing_errors_doc = "allow" # Document errors separately
+missing_panics_doc = "allow" # Document panics separately
 module_name_repetitions = "allow" # Allow Foo::FooError pattern
-too_many_lines = "allow"          # Function length varies
-must_use_candidate = "allow"      # Too many suggestions
+too_many_lines = "allow" # Function length varies
+must_use_candidate = "allow" # Too many suggestions
 ```
 
 ## Recommended Pedantic Lints

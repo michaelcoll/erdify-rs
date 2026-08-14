@@ -11,16 +11,16 @@ mise run setup         # One-time: fetch cargo dependencies
 
 ## Command Summary
 
-| Action                     | Command                     | Alias         |
-| -------------------------- | --------------------------- | ------------- |
-| **All checks**             | `mise run checks`           | —             |
-| **Tests**                  | `mise run test`             | —             |
-| **Lint**                   | `mise run lint`             | —             |
-| **Format code**            | `mise run format`           | `mise run f`  |
-| **Build**                  | `mise run build`            | `mise run bb` |
-| **Run CLI**                | `mise run run`              | —             |
-| **Clean artifacts**        | `mise run clean`            | —             |
-| **Upgrade deps**           | `mise run upgrade`          | —             |
+| Action              | Command            | Alias         |
+| ------------------- | ------------------ | ------------- |
+| **All checks**      | `mise run checks`  | —             |
+| **Tests**           | `mise run test`    | —             |
+| **Lint**            | `mise run lint`    | —             |
+| **Format code**     | `mise run format`  | `mise run f`  |
+| **Build**           | `mise run build`   | `mise run bb` |
+| **Run CLI**         | `mise run run`     | —             |
+| **Clean artifacts** | `mise run clean`   | —             |
+| **Upgrade deps**    | `mise run upgrade` | —             |
 
 ## Detailed Commands
 

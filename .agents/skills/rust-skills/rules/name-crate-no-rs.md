@@ -11,10 +11,10 @@ Adding `-rs` or `-rust` to crate names is redundant—you're already on crates.i
 ```toml
 # Cargo.toml
 [package]
-name = "json-parser-rs"    # Redundant -rs
-name = "my-lib-rust"       # Redundant -rust
-name = "http-client-rs"    # We know it's Rust
-name = "rust-sqlite"       # rust- prefix equally bad
+name = "json-parser-rs" # Redundant -rs
+name = "my-lib-rust" # Redundant -rust
+name = "http-client-rs" # We know it's Rust
+name = "rust-sqlite" # rust- prefix equally bad
 ```
 
 ## Good
@@ -38,13 +38,13 @@ name = "sqlite-wrapper"
 
 ```toml
 # If you're porting a library from another language:
-name = "python-ast"        # Describes what it's for, not what it's written in
+name = "python-ast" # Describes what it's for, not what it's written in
 
 # If you're providing bindings:
-name = "openssl"           # The Rust crate IS the Rust interface
+name = "openssl" # The Rust crate IS the Rust interface
 
 # Platform-specific:
-name = "windows-sys"       # Platform, not language
+name = "windows-sys" # Platform, not language
 ```
 
 ## Repository Naming
@@ -66,9 +66,9 @@ github.com/rust-lang/rust       # The rust repo itself uses "rust"
 # - Official Rust project repositories (rust-lang org)
 
 # But even then, consider alternatives:
-name = "fancy-lib"           # Instead of fancy-rs
-name = "better-json"         # Instead of json-rust
-name = "my-serde-impl"       # Instead of serde-rs-fork
+name = "fancy-lib" # Instead of fancy-rs
+name = "better-json" # Instead of json-rust
+name = "my-serde-impl" # Instead of serde-rs-fork
 ```
 
 ## See Also

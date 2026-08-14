@@ -116,8 +116,8 @@ fn map<F>(self, f: F) -> Map<Self, F> { ... }
 
 ```toml
 [lints.clippy]
-must_use_candidate = "warn"  # Suggests where #[must_use] would help
-return_self_not_must_use = "warn"  # Specifically for -> Self methods
+must_use_candidate = "warn" # Suggests where #[must_use] would help
+return_self_not_must_use = "warn" # Specifically for -> Self methods
 ```
 
 ## Standard Library Examples

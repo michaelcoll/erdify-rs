@@ -31,7 +31,7 @@ pub fn derive_hello(input: TokenStream) -> TokenStream {
 ```toml
 # Cargo.toml for the derive crate
 [dependencies]
-syn  = { version = "2", features = ["derive"] }
+syn = { version = "2", features = ["derive"] }
 quote = "1"
 proc-macro2 = "1"
 ```

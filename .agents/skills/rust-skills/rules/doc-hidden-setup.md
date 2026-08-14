@@ -1,10 +1,10 @@
 # doc-hidden-setup
 
-> Use `# ` prefix to hide example setup code
+> Use `#` prefix to hide example setup code
 
 ## Why It Matters
 
-Doc examples often require setup code (imports, struct initialization, mock data) that distracts from the main point. The `# ` prefix hides lines from rendered documentation while keeping them in the compiled test, showing users only the relevant code.
+Doc examples often require setup code (imports, struct initialization, mock data) that distracts from the main point. The `#` prefix hides lines from rendered documentation while keeping them in the compiled test, showing users only the relevant code.
 
 This keeps examples focused and readable while ensuring they still compile and run.
 

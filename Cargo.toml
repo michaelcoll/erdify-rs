@@ -2,15 +2,24 @@
 name = "erdify-rs"
 version = "0.1.0"
 edition = "2024"
-description = "CLI tool to generate Mermaid ER diagrams from PostgreSQL databases"
 license = "MIT"
+description = "CLI tool to generate Mermaid ER diagrams from PostgreSQL databases"
 
 [[bin]]
 name = "erdify"
 path = "src/main.rs"
 
+[profile.release]
+strip = true
+lto = true
+opt-level = "z"
+codegen-units = 1
+panic = "abort"
+
 [dependencies]
 clap = { version = "4", features = ["derive"] }
+percent-encoding = "2"
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }
 tokio-postgres = "0.7"
+url = "2"

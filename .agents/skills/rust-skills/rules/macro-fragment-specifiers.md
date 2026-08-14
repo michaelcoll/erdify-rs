@@ -49,7 +49,7 @@ fn main() {
 | `:ty`        | A type                   | Generic helpers, type aliases |
 | `:ident`     | An identifier            | Field names, variable names   |
 | `:pat`       | A pattern                | `match` arm patterns          |
-| `:pat_param` | A pattern (no `          | ` at top level)               | Fn param patterns |
+| `:pat_param` | A pattern (no `          | ` at top level)               |
 | `:path`      | A path (`a::b::c`)       | Trait bounds, type paths      |
 | `:literal`   | A literal (`42`, `"hi"`) | Constant values               |
 | `:block`     | A `{ ... }` block        | Inline code injection         |

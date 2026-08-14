@@ -100,7 +100,7 @@ useless_let_if_seq = "warn"
 unwrap_used = "deny"
 expect_used = "warn"
 dbg_macro = "warn"
-print_stdout = "warn"  # Use logging instead
+print_stdout = "warn" # Use logging instead
 todo = "warn"
 
 [workspace.lints.rustdoc]
@@ -162,7 +162,7 @@ perf = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 
 # Then override specific lints (higher priority)
-missing_errors_doc = "allow"  # Override pedantic
+missing_errors_doc = "allow" # Override pedantic
 ```
 
 ## See Also

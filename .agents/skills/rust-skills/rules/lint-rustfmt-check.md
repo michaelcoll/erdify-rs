@@ -102,8 +102,8 @@ In `rustfmt.toml`:
 ```toml
 # Skip generated files
 ignore = [
-    "src/generated/*",
-    "build.rs",
+  "src/generated/*",
+  "build.rs",
 ]
 ```
 

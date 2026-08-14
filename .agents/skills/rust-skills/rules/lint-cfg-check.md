@@ -24,10 +24,7 @@ pub fn experimental() {}
 ```toml
 # Cargo.toml — declare custom cfgs in the lints table
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = [
-    'cfg(tokio_unstable)',
-    'cfg(coverage_nightly)',
-] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tokio_unstable)', 'cfg(coverage_nightly)'] }
 ```
 
 ```rust
@@ -47,9 +44,7 @@ Configure the lint once at the workspace level and inherit it in member crates:
 ```toml
 # Cargo.toml (workspace root)
 [workspace.lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = [
-    'cfg(tokio_unstable)',
-] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tokio_unstable)'] }
 
 # member/Cargo.toml
 [lints]

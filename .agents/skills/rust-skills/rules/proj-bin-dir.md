@@ -132,7 +132,7 @@ path = "src/bin/cli.rs"
 
 [package]
 name = "my-tool"
-default-run = "my-tool"  # Or specify another
+default-run = "my-tool" # Or specify another
 ```
 
 ## See Also

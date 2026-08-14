@@ -16,8 +16,8 @@ tokio = "1.25"
 
 # crate-b/Cargo.toml
 [dependencies]
-serde = "1.0.188"  # Different version!
-tokio = "1.32"     # Different version!
+serde = "1.0.188" # Different version!
+tokio = "1.32" # Different version!
 
 # Version drift leads to:
 # - Larger binaries (multiple versions)
@@ -65,7 +65,7 @@ tokio = { workspace = true, features = ["net", "io-util"] }
 
 # crate-b/Cargo.toml - minimal features
 [dependencies]
-tokio = { workspace = true }  # Just workspace features
+tokio = { workspace = true } # Just workspace features
 ```
 
 ## Dev and Build Dependencies
@@ -112,7 +112,7 @@ serde.workspace = true
 ```toml
 # Root Cargo.toml
 [workspace.dependencies]
-serde = { version = "1.0", optional = true }  # Won't work!
+serde = { version = "1.0", optional = true } # Won't work!
 
 # Optional must be set in member, not workspace
 [workspace.dependencies]
@@ -132,7 +132,7 @@ serde = ["dep:serde"]
 # Root Cargo.toml
 [workspace]
 members = ["crates/*"]
-resolver = "3"  # default for the 2024 edition; use "2" for 2021
+resolver = "3" # default for the 2024 edition; use "2" for 2021
 
 [workspace.package]
 version = "0.1.0"

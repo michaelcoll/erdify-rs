@@ -71,7 +71,6 @@ fn filter_loop_nightly(data: &[Vec<i32>]) {
         process(&buffer);
     }
 }
-
 ```
 
 ## Stable Alternative: extend

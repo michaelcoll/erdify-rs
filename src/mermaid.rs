@@ -5,7 +5,7 @@
 //! and relationships formatted as `PARENT ||--o{ CHILD : "label"`.
 
 use crate::config::{Args, OutputMode};
-use crate::schema::Table;
+use crate::schema::{Table, TableKind};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 
@@ -47,6 +47,8 @@ pub fn render_all(tables: &[Table], mode: OutputMode, args: &Args, database: &st
     }
 
     output.push_str("```\n");
+
+    output.push_str(&render_views_section(tables, qualify));
 
     if mode == OutputMode::Full {
         output.push_str(&render_extras(tables, qualify));
@@ -123,11 +125,19 @@ fn render_entity(table: &Table, name: &str, mode: OutputMode) -> String {
         }
 
         // NOT NULL is redundant with PK, so it's only shown for other columns.
-        if mode == OutputMode::Full
-            && !pk.contains(col_name)
-            && table.not_null_cols.contains(col_name)
-        {
-            s.push_str(" \"not null\"");
+        // The default value stays useful even on a PK (e.g. a sequence), so
+        // it isn't suppressed there.
+        if mode == OutputMode::Full {
+            let mut notes: Vec<String> = Vec::new();
+            if !pk.contains(col_name) && table.not_null_cols.contains(col_name) {
+                notes.push("not null".to_string());
+            }
+            if let Some(default) = &col.default {
+                notes.push(format!("default: {}", sanitize_comment(default)));
+            }
+            if !notes.is_empty() {
+                let _ = write!(s, " \"{}\"", notes.join(", "));
+            }
         }
 
         s.push('\n');
@@ -218,6 +228,42 @@ fn is_unique_set(table: &Table, columns: &[String]) -> bool {
     });
 
     constraint_match || index_match
+}
+
+/// Generates the Markdown section listing views and materialized views.
+///
+/// Unlike [`render_extras`], this section is generated in every output mode:
+/// distinguishing a view from a regular table isn't a level-of-detail
+/// concern, it's part of identifying the entity. Returns an empty string if
+/// no view or materialized view is present.
+fn render_views_section(tables: &[Table], qualify: bool) -> String {
+    let mut s = String::new();
+
+    let views: Vec<&Table> = tables
+        .iter()
+        .filter(|t| t.kind != TableKind::Table)
+        .collect();
+    if views.is_empty() {
+        return s;
+    }
+
+    s.push_str("\n## Views\n\n");
+
+    for table in views {
+        let name = if qualify {
+            format!("{}.{}", table.schema, table.name)
+        } else {
+            table.name.clone()
+        };
+        let label = match table.kind {
+            TableKind::View => "view",
+            TableKind::MaterializedView => "materialized view",
+            TableKind::Table => unreachable!("filtered to non-Table kinds above"),
+        };
+        let _ = writeln!(s, "- `{name}` ({label})");
+    }
+
+    s
 }
 
 /// Generates the Markdown section listing indexes and constraints (full mode).
@@ -389,7 +435,9 @@ fn sanitize_comment(raw: &str) -> String {
 mod tests {
     use super::*;
     use crate::config::Args;
-    use crate::schema::{CheckConstraint, Column, ForeignKey, IndexInfo, UniqueConstraint};
+    use crate::schema::{
+        CheckConstraint, Column, ForeignKey, IndexInfo, TableKind, UniqueConstraint,
+    };
     use clap::Parser;
 
     fn args() -> Args {
@@ -400,14 +448,17 @@ mod tests {
         Table {
             schema: "public".to_string(),
             name: "users".to_string(),
+            kind: TableKind::Table,
             columns: vec![
                 Column {
                     name: "id".to_string(),
                     data_type: "integer".to_string(),
+                    default: None,
                 },
                 Column {
                     name: "email".to_string(),
                     data_type: "character varying(255)".to_string(),
+                    default: None,
                 },
             ],
             primary_keys: vec!["id".to_string()],
@@ -430,18 +481,22 @@ mod tests {
         Table {
             schema: "public".to_string(),
             name: "orders".to_string(),
+            kind: TableKind::Table,
             columns: vec![
                 Column {
                     name: "id".to_string(),
                     data_type: "integer".to_string(),
+                    default: None,
                 },
                 Column {
                     name: "user_id".to_string(),
                     data_type: "integer".to_string(),
+                    default: None,
                 },
                 Column {
                     name: "total".to_string(),
                     data_type: "numeric(10,2)".to_string(),
+                    default: None,
                 },
             ],
             primary_keys: vec!["id".to_string()],
@@ -498,6 +553,70 @@ mod tests {
             orders.contains("        integer user_id FK \"not null\"\n"),
             "{orders}"
         );
+    }
+
+    #[test]
+    fn full_mode_shows_column_default() {
+        let mut users = mock_users();
+        users.not_null_cols.remove("email");
+        users.columns[1].default = Some("'unknown@example.com'::character varying".to_string());
+
+        let result = render_entity(&users, "users", OutputMode::Full);
+
+        assert!(
+            result.contains("\"default: 'unknown@example.com'::character varying\"\n"),
+            "{result}"
+        );
+    }
+
+    #[test]
+    fn full_mode_combines_not_null_and_default() {
+        let mut users = mock_users();
+        users.columns[1].default = Some("'unknown'::character varying".to_string());
+
+        let result = render_entity(&users, "users", OutputMode::Full);
+
+        assert!(
+            result.contains("\"not null, default: 'unknown'::character varying\"\n"),
+            "{result}"
+        );
+    }
+
+    #[test]
+    fn full_mode_shows_default_on_primary_key_column() {
+        let mut users = mock_users();
+        users.columns[0].default = Some("nextval('users_id_seq'::regclass)".to_string());
+
+        let result = render_entity(&users, "users", OutputMode::Full);
+
+        assert!(
+            result.contains("integer id PK \"default: nextval('users_id_seq'::regclass)\"\n"),
+            "{result}"
+        );
+        assert!(!result.contains("not null, default"), "{result}");
+    }
+
+    #[test]
+    fn default_and_minimal_mode_never_show_default() {
+        let mut users = mock_users();
+        users.columns[1].default = Some("'unknown'::character varying".to_string());
+
+        let default_mode = render_entity(&users, "users", OutputMode::Default);
+        let minimal_mode = render_entity(&users, "users", OutputMode::Minimal);
+
+        assert!(!default_mode.contains("default:"), "{default_mode}");
+        assert!(!minimal_mode.contains("default:"), "{minimal_mode}");
+    }
+
+    #[test]
+    fn column_default_with_quotes_is_sanitized() {
+        let mut users = mock_users();
+        users.not_null_cols.remove("email");
+        users.columns[1].default = Some("'a\"b\nc'::text".to_string());
+
+        let result = render_entity(&users, "users", OutputMode::Full);
+
+        assert!(result.contains("\"default: 'a'b c'::text\"\n"), "{result}");
     }
 
     #[test]
@@ -571,6 +690,32 @@ mod tests {
     }
 
     #[test]
+    fn full_mode_draws_no_relationship_for_views() {
+        // Views/materialized views never carry catalog foreign keys (no such
+        // constraint exists on them), so `render_relationships` naturally
+        // produces no line involving them, even in --full.
+        let tables = vec![mock_users(), mock_view(), mock_matview()];
+        let names = tables
+            .iter()
+            .map(|t| (t.key(), t.name.clone()))
+            .collect::<HashMap<_, _>>();
+
+        assert!(render_relationships(&tables, &names).is_empty());
+    }
+
+    #[test]
+    fn full_mode_marks_uk_on_materialized_view_column() {
+        let matview = mock_matview();
+
+        let result = render_entity(&matview, "users_summary", OutputMode::Full);
+
+        assert!(
+            result.contains("character_varying(255) email UK"),
+            "{result}"
+        );
+    }
+
+    #[test]
     fn default_mode_does_not_draw_relationships() {
         let tables = vec![mock_users(), mock_orders()];
 
@@ -620,6 +765,73 @@ mod tests {
                 "- check constraint `chk_orders_total_positive`: `CHECK ((total > (0)::numeric))`"
             ),
             "{extras}"
+        );
+    }
+
+    fn mock_view() -> Table {
+        let mut view = mock_users();
+        view.name = "active_users".to_string();
+        view.kind = TableKind::View;
+        view.primary_keys = Vec::new();
+        view.unique_constraints = Vec::new();
+        view.indexes = Vec::new();
+        view
+    }
+
+    fn mock_matview() -> Table {
+        let mut matview = mock_users();
+        matview.name = "users_summary".to_string();
+        matview.kind = TableKind::MaterializedView;
+        matview.primary_keys = Vec::new();
+        matview
+    }
+
+    #[test]
+    fn views_section_lists_views_and_materialized_views_in_every_mode() {
+        let tables = vec![mock_users(), mock_view(), mock_matview()];
+
+        for mode in [OutputMode::Minimal, OutputMode::Default, OutputMode::Full] {
+            let result = render_all(&tables, mode, &args(), "d");
+            // Views/materialized views are rendered as regular entities in
+            // the diagram itself, without flag, in every mode...
+            assert!(
+                result.contains("    active_users {\n"),
+                "{mode:?}: {result}"
+            );
+            assert!(
+                result.contains("    users_summary {\n"),
+                "{mode:?}: {result}"
+            );
+            // ...and are additionally identified in the dedicated section.
+            assert!(result.contains("\n## Views\n"), "{mode:?}: {result}");
+            assert!(
+                result.contains("- `active_users` (view)"),
+                "{mode:?}: {result}"
+            );
+            assert!(
+                result.contains("- `users_summary` (materialized view)"),
+                "{mode:?}: {result}"
+            );
+        }
+    }
+
+    #[test]
+    fn views_section_is_absent_without_any_view() {
+        let tables = vec![mock_users(), mock_orders()];
+
+        let result = render_all(&tables, OutputMode::Full, &args(), "d");
+
+        assert!(!result.contains("## Views"), "{result}");
+    }
+
+    #[test]
+    fn views_section_distinguishes_view_and_materialized_view() {
+        let result = render_views_section(&[mock_view(), mock_matview()], false);
+
+        assert!(result.contains("- `active_users` (view)\n"), "{result}");
+        assert!(
+            result.contains("- `users_summary` (materialized view)\n"),
+            "{result}"
         );
     }
 

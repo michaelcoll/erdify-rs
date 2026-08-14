@@ -3,7 +3,8 @@
 use crate::config::ConnectionInfo;
 use crate::errors::ErdifyError;
 use crate::schema::{
-    CheckConstraint, Column, ForeignKey, IndexInfo, SYSTEM_SCHEMAS, Table, UniqueConstraint,
+    CheckConstraint, Column, ForeignKey, IndexInfo, SYSTEM_SCHEMAS, Table, TableKind,
+    UniqueConstraint,
 };
 use std::collections::{HashMap, HashSet};
 use tokio::time::{Duration, timeout};
@@ -40,6 +41,8 @@ struct ColumnRow {
     name: String,
     data_type: String,
     not_null: bool,
+    /// Raw `DEFAULT` expression from `pg_attrdef`, if any.
+    default_expr: Option<String>,
 }
 
 /// Identity of a table in the catalog.
@@ -47,6 +50,21 @@ struct TableRow {
     oid: Oid,
     schema: String,
     name: String,
+    /// `r`/`p` (table), `v` (view) or `m` (materialized view).
+    relkind: String,
+}
+
+/// Maps a `pg_class.relkind` value to the corresponding [`TableKind`].
+///
+/// The catalog query only ever returns `r`, `p`, `v` or `m` (see the
+/// `relkind IN (...)` filter in [`fetch_table_list`]), so any other value
+/// falls back to [`TableKind::Table`] rather than panicking.
+fn table_kind(relkind: &str) -> TableKind {
+    match relkind {
+        "v" => TableKind::View,
+        "m" => TableKind::MaterializedView,
+        _ => TableKind::Table,
+    }
 }
 
 /// Connection to the PostgreSQL database with a timeout.
@@ -144,12 +162,15 @@ pub async fn fetch_tables(
 /// Lists ordinary and partitioned tables of the requested schemas.
 async fn fetch_table_list(client: &Client, schemas: &[&str]) -> Result<Vec<TableRow>, ErdifyError> {
     // `$1` is NULL when no schema is requested: the predicate is then
-    // neutralized and only system schemas remain excluded.
+    // neutralized and only system schemas remain excluded. `v` (view) and
+    // `m` (materialized view) are included alongside ordinary/partitioned
+    // tables so they're rendered as entities too.
     let query = "\
-        SELECT c.oid, n.nspname AS schema_name, c.relname AS table_name \
+        SELECT c.oid, n.nspname AS schema_name, c.relname AS table_name, \
+               c.relkind::text AS relkind \
         FROM pg_class c \
         JOIN pg_namespace n ON n.oid = c.relnamespace \
-        WHERE c.relkind IN ('r', 'p') \
+        WHERE c.relkind IN ('r', 'p', 'v', 'm') \
           AND NOT c.relispartition \
           AND n.nspname <> ALL($2) \
           AND ($1::text[] IS NULL OR n.nspname = ANY($1)) \
@@ -173,6 +194,7 @@ async fn fetch_table_list(client: &Client, schemas: &[&str]) -> Result<Vec<Table
             oid: row.get("oid"),
             schema: row.get("schema_name"),
             name: row.get("table_name"),
+            relkind: row.get("relkind"),
         })
         .collect())
 }
@@ -180,13 +202,17 @@ async fn fetch_table_list(client: &Client, schemas: &[&str]) -> Result<Vec<Table
 /// Loads the columns (name, type, nullability) of the requested tables.
 async fn fetch_columns(client: &Client, oids: &[Oid]) -> Result<Vec<ColumnRow>, ErdifyError> {
     // `format_type` returns the type as PostgreSQL displays it, including for
-    // user-defined types and domains: no "unknown" type.
+    // user-defined types and domains: no "unknown" type. The `LEFT JOIN` on
+    // `pg_attrdef` stays empty for views/materialized views, which can't
+    // declare column defaults: `default_expr` is naturally `NULL` for them.
     let query = "\
         SELECT a.attrelid AS table_oid, \
                a.attname AS column_name, \
                format_type(a.atttypid, a.atttypmod) AS data_type, \
-               a.attnotnull AS not_null \
+               a.attnotnull AS not_null, \
+               pg_get_expr(ad.adbin, ad.adrelid) AS default_expr \
         FROM pg_attribute a \
+        LEFT JOIN pg_attrdef ad ON ad.adrelid = a.attrelid AND ad.adnum = a.attnum \
         WHERE a.attrelid = ANY($1) \
           AND a.attnum > 0 \
           AND NOT a.attisdropped \
@@ -204,6 +230,7 @@ async fn fetch_columns(client: &Client, oids: &[Oid]) -> Result<Vec<ColumnRow>, 
             name: row.get("column_name"),
             data_type: row.get("data_type"),
             not_null: row.get("not_null"),
+            default_expr: row.get("default_expr"),
         })
         .collect())
 }
@@ -315,6 +342,7 @@ fn assemble_tables(
         tables.push(Table {
             schema: row.schema,
             name: row.name,
+            kind: table_kind(&row.relkind),
             ..Table::default()
         });
     }
@@ -330,6 +358,7 @@ fn assemble_tables(
         table.columns.push(Column {
             name: col.name,
             data_type: col.data_type,
+            default: col.default_expr,
         });
     }
 
@@ -428,10 +457,15 @@ mod tests {
     use super::*;
 
     fn table_row(oid: Oid, schema: &str, name: &str) -> TableRow {
+        table_row_with_kind(oid, schema, name, "r")
+    }
+
+    fn table_row_with_kind(oid: Oid, schema: &str, name: &str, relkind: &str) -> TableRow {
         TableRow {
             oid,
             schema: schema.to_string(),
             name: name.to_string(),
+            relkind: relkind.to_string(),
         }
     }
 
@@ -465,12 +499,14 @@ mod tests {
                 name: "id".to_string(),
                 data_type: "integer".to_string(),
                 not_null: true,
+                default_expr: None,
             },
             ColumnRow {
                 table_oid: 1,
                 name: "bio".to_string(),
                 data_type: "text".to_string(),
                 not_null: false,
+                default_expr: None,
             },
         ];
 
@@ -480,6 +516,49 @@ mod tests {
         assert_eq!(tables[0].columns[0].name, "id");
         assert!(tables[0].not_null_cols.contains("id"));
         assert!(!tables[0].not_null_cols.contains("bio"));
+    }
+
+    #[test]
+    fn assemble_tables_attaches_column_default() {
+        let rows = vec![table_row(1, "public", "users")];
+        let columns = vec![
+            ColumnRow {
+                table_oid: 1,
+                name: "created_at".to_string(),
+                data_type: "timestamp".to_string(),
+                not_null: true,
+                default_expr: Some("now()".to_string()),
+            },
+            ColumnRow {
+                table_oid: 1,
+                name: "bio".to_string(),
+                data_type: "text".to_string(),
+                not_null: false,
+                default_expr: None,
+            },
+        ];
+
+        let tables = assemble_tables(rows, columns, Vec::new(), Vec::new());
+
+        assert_eq!(tables[0].columns[0].default, Some("now()".to_string()));
+        assert_eq!(tables[0].columns[1].default, None);
+    }
+
+    #[test]
+    fn assemble_tables_assigns_kind_from_relkind() {
+        let rows = vec![
+            table_row_with_kind(1, "public", "users", "r"),
+            table_row_with_kind(2, "public", "orders_p1", "p"),
+            table_row_with_kind(3, "public", "orders_summary", "v"),
+            table_row_with_kind(4, "public", "orders_summary_mat", "m"),
+        ];
+
+        let tables = assemble_tables(rows, Vec::new(), Vec::new(), Vec::new());
+
+        assert_eq!(tables[0].kind, TableKind::Table);
+        assert_eq!(tables[1].kind, TableKind::Table);
+        assert_eq!(tables[2].kind, TableKind::View);
+        assert_eq!(tables[3].kind, TableKind::MaterializedView);
     }
 
     #[test]
@@ -566,6 +645,7 @@ mod tests {
             name: "ghost".to_string(),
             data_type: "text".to_string(),
             not_null: false,
+            default_expr: None,
         }];
 
         let tables = assemble_tables(rows, columns, Vec::new(), Vec::new());

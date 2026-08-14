@@ -52,3 +52,7 @@ run = "cargo update"
 [tasks.run]
 description = "Runs the CLI"
 run = "cargo run --"
+
+[tasks.coverage-backend]
+description = "Runs the backend tests with coverage"
+run = "cargo llvm-cov nextest --status-level slow --locked --workspace --all-features --tests --ignore-filename-regex \"main.rs\" --lcov --output-path lcov.info"

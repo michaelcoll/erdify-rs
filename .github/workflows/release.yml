@@ -49,6 +49,6 @@ jobs:
         run: cp target/${{ matrix.target }}/release/${{ matrix.bin }} erdify-${{ matrix.target }}${{ matrix.bin == 'erdify.exe' && '.exe' || '' }}
 
       - name: Upload release asset
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: erdify-${{ matrix.target }}*

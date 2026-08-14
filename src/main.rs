@@ -5,7 +5,7 @@ async fn main() {
     match erdify_rs::run(args).await {
         Ok(()) => std::process::exit(0),
         Err(e) => {
-            eprintln!("erreur : {e}");
+            eprintln!("error: {e}");
             std::process::exit(1);
         }
     }

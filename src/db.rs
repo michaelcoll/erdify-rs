@@ -1,4 +1,4 @@
-//! Extraction du schéma depuis le catalogue système PostgreSQL.
+//! Schema extraction from the PostgreSQL system catalog.
 
 use crate::config::ConnectionInfo;
 use crate::errors::ErdifyError;
@@ -10,14 +10,14 @@ use tokio::time::{Duration, timeout};
 use tokio_postgres::types::{Oid, ToSql};
 use tokio_postgres::{Client, NoTls};
 
-/// Délai maximum d'établissement de la connexion.
+/// Maximum delay for establishing the connection.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// Contrainte brute telle que lue dans `pg_constraint`.
+/// Raw constraint as read from `pg_constraint`.
 struct ConstraintRow {
     table_oid: Oid,
     name: String,
-    /// `p` (primary key), `f` (foreign key), `u` (unique) ou `c` (check).
+    /// `p` (primary key), `f` (foreign key), `u` (unique) or `c` (check).
     kind: String,
     columns: Vec<String>,
     ref_schema: Option<String>,
@@ -26,7 +26,7 @@ struct ConstraintRow {
     definition: String,
 }
 
-/// Index brut tel que lu dans `pg_index`.
+/// Raw index as read from `pg_index`.
 struct IndexRow {
     table_oid: Oid,
     name: String,
@@ -34,7 +34,7 @@ struct IndexRow {
     is_unique: bool,
 }
 
-/// Colonne brute telle que lue dans `pg_attribute`.
+/// Raw column as read from `pg_attribute`.
 struct ColumnRow {
     table_oid: Oid,
     name: String,
@@ -42,24 +42,24 @@ struct ColumnRow {
     not_null: bool,
 }
 
-/// Identité d'une table dans le catalogue.
+/// Identity of a table in the catalog.
 struct TableRow {
     oid: Oid,
     schema: String,
     name: String,
 }
 
-/// Connexion à la base PostgreSQL avec timeout.
+/// Connection to the PostgreSQL database with a timeout.
 ///
 /// # Errors
 ///
-/// Retourne [`ErdifyError::ConnectionTimeout`] si la connexion n'aboutit pas
-/// dans le délai imparti, [`ErdifyError::DatabaseConnection`] si le serveur
-/// refuse la connexion.
+/// Returns [`ErdifyError::ConnectionTimeout`] if the connection doesn't
+/// succeed within the allotted time, [`ErdifyError::DatabaseConnection`] if
+/// the server refuses the connection.
 pub async fn connect(info: &ConnectionInfo) -> Result<Client, ErdifyError> {
-    // La configuration est construite champ par champ plutôt que par
-    // concaténation d'une URL : un mot de passe contenant `@`, `/` ou `:`
-    // casserait la chaîne de connexion.
+    // The configuration is built field by field rather than by concatenating
+    // a URL: a password containing `@`, `/` or `:` would break the
+    // connection string.
     let mut config = tokio_postgres::Config::new();
     config
         .host(&info.host)
@@ -80,7 +80,7 @@ pub async fn connect(info: &ConnectionInfo) -> Result<Client, ErdifyError> {
         Ok(Ok((client, connection))) => {
             tokio::spawn(async move {
                 if let Err(e) = connection.await {
-                    eprintln!("avertissement : connexion interrompue : {e}");
+                    eprintln!("warning: connection interrupted: {e}");
                 }
             });
 
@@ -92,11 +92,11 @@ pub async fn connect(info: &ConnectionInfo) -> Result<Client, ErdifyError> {
     }
 }
 
-/// Valide la connexion en exécutant une requête simple.
+/// Validates the connection by running a simple query.
 ///
 /// # Errors
 ///
-/// Retourne [`ErdifyError::DatabaseConnection`] si la requête échoue.
+/// Returns [`ErdifyError::DatabaseConnection`] if the query fails.
 pub async fn ping(client: &Client) -> Result<(), ErdifyError> {
     client
         .query_one("SELECT 1", &[])
@@ -105,14 +105,14 @@ pub async fn ping(client: &Client) -> Result<(), ErdifyError> {
     Ok(())
 }
 
-/// Récupère toutes les tables des schemas spécifiés, avec leurs métadonnées.
+/// Fetches all tables of the specified schemas, along with their metadata.
 ///
-/// Les tables sont retournées triées par `(schema, nom)` pour que la sortie
-/// soit reproductible d'une exécution à l'autre.
+/// Tables are returned sorted by `(schema, name)` so the output is
+/// reproducible across runs.
 ///
 /// # Errors
 ///
-/// Retourne [`ErdifyError::QueryError`] si une des requêtes catalogue échoue.
+/// Returns [`ErdifyError::QueryError`] if one of the catalog queries fails.
 pub async fn fetch_tables(
     client: &Client,
     schemas: &[&str],
@@ -128,8 +128,8 @@ pub async fn fetch_tables(
 
     let oids: Vec<Oid> = table_rows.iter().map(|t| t.oid).collect();
 
-    // Les trois requêtes sont indépendantes, mais tokio-postgres sérialise les
-    // requêtes d'un même client : les enchaîner reste le plus simple.
+    // The three queries are independent, but tokio-postgres serializes
+    // queries from the same client: chaining them remains the simplest approach.
     let columns = fetch_columns(client, &oids).await?;
     let constraints = fetch_constraints(client, &oids).await?;
     let indexes = fetch_indexes(client, &oids).await?;
@@ -141,10 +141,10 @@ pub async fn fetch_tables(
     Ok(tables)
 }
 
-/// Liste les tables ordinaires et partitionnées des schemas demandés.
+/// Lists ordinary and partitioned tables of the requested schemas.
 async fn fetch_table_list(client: &Client, schemas: &[&str]) -> Result<Vec<TableRow>, ErdifyError> {
-    // `$1` vaut NULL quand aucun schema n'est demandé : le prédicat est alors
-    // neutralisé et seuls les schemas systèmes restent exclus.
+    // `$1` is NULL when no schema is requested: the predicate is then
+    // neutralized and only system schemas remain excluded.
     let query = "\
         SELECT c.oid, n.nspname AS schema_name, c.relname AS table_name \
         FROM pg_class c \
@@ -177,10 +177,10 @@ async fn fetch_table_list(client: &Client, schemas: &[&str]) -> Result<Vec<Table
         .collect())
 }
 
-/// Charge les colonnes (nom, type, nullabilité) des tables demandées.
+/// Loads the columns (name, type, nullability) of the requested tables.
 async fn fetch_columns(client: &Client, oids: &[Oid]) -> Result<Vec<ColumnRow>, ErdifyError> {
-    // `format_type` restitue le type tel que PostgreSQL l'affiche, y compris
-    // pour les types utilisateur et les domaines : pas de type « inconnu ».
+    // `format_type` returns the type as PostgreSQL displays it, including for
+    // user-defined types and domains: no "unknown" type.
     let query = "\
         SELECT a.attrelid AS table_oid, \
                a.attname AS column_name, \
@@ -208,13 +208,13 @@ async fn fetch_columns(client: &Client, oids: &[Oid]) -> Result<Vec<ColumnRow>, 
         .collect())
 }
 
-/// Charge les contraintes PK, FK, UNIQUE et CHECK des tables demandées.
+/// Loads the PK, FK, UNIQUE, and CHECK constraints of the requested tables.
 async fn fetch_constraints(
     client: &Client,
     oids: &[Oid],
 ) -> Result<Vec<ConstraintRow>, ErdifyError> {
-    // `WITH ORDINALITY` préserve l'ordre des colonnes déclaré dans la
-    // contrainte, ce qu'une simple jointure sur `pg_attribute` ne garantit pas.
+    // `WITH ORDINALITY` preserves the column order declared in the
+    // constraint, which a plain join on `pg_attribute` doesn't guarantee.
     let query = "\
         SELECT co.conrelid AS table_oid, \
                co.conname AS constraint_name, \
@@ -261,11 +261,11 @@ async fn fetch_constraints(
         .collect())
 }
 
-/// Charge les indexes des tables demandées, hors index de clé primaire.
+/// Loads the indexes of the requested tables, excluding the primary key index.
 async fn fetch_indexes(client: &Client, oids: &[Oid]) -> Result<Vec<IndexRow>, ErdifyError> {
-    // `indkey` est un `int2vector` : le cast explicite en `smallint[]` permet
-    // d'utiliser `unnest ... WITH ORDINALITY`. Les entrées à 0 (colonnes
-    // d'expression) ne joignent aucune ligne et sont naturellement ignorées.
+    // `indkey` is an `int2vector`: the explicit cast to `smallint[]` allows
+    // using `unnest ... WITH ORDINALITY`. Entries of 0 (expression columns)
+    // don't join any row and are naturally ignored.
     let query = "\
         SELECT ix.indrelid AS table_oid, \
                i.relname AS index_name, \
@@ -298,15 +298,15 @@ async fn fetch_indexes(client: &Client, oids: &[Oid]) -> Result<Vec<IndexRow>, E
         .collect())
 }
 
-/// Assemble les lignes brutes du catalogue en [`Table`], triées par `(schema, nom)`.
+/// Assembles the raw catalog rows into [`Table`]s, sorted by `(schema, name)`.
 fn assemble_tables(
     table_rows: Vec<TableRow>,
     columns: Vec<ColumnRow>,
     constraints: Vec<ConstraintRow>,
     indexes: Vec<IndexRow>,
 ) -> Vec<Table> {
-    // L'ordre de `table_rows` vient d'un `ORDER BY` : on le conserve en
-    // indexant les positions plutôt qu'en itérant une `HashMap`.
+    // The order of `table_rows` comes from an `ORDER BY`: it's preserved by
+    // indexing positions rather than iterating a `HashMap`.
     let mut tables: Vec<Table> = Vec::with_capacity(table_rows.len());
     let mut position: HashMap<Oid, usize> = HashMap::with_capacity(table_rows.len());
 
@@ -342,8 +342,8 @@ fn assemble_tables(
         match c.kind.as_str() {
             "p" => table.primary_keys = c.columns,
             "f" => {
-                // `ref_schema` / `ref_table` sont NULL si la table cible a
-                // disparu entre deux requêtes : la FK est alors inexploitable.
+                // `ref_schema` / `ref_table` are NULL if the target table
+                // disappeared between two queries: the FK is then unusable.
                 if let (Some(to_schema), Some(to_table)) = (c.ref_schema, c.ref_table) {
                     table.foreign_keys.push(ForeignKey {
                         name: c.name,
@@ -380,7 +380,7 @@ fn assemble_tables(
     tables
 }
 
-/// Avertit sur stderr pour chaque schema demandé sans aucune table.
+/// Warns on stderr for each requested schema that has no table.
 fn warn_missing_schemas(requested: &[&str], found: &[TableRow]) {
     if requested.is_empty() {
         return;
@@ -389,12 +389,12 @@ fn warn_missing_schemas(requested: &[&str], found: &[TableRow]) {
     let present: HashSet<&str> = found.iter().map(|t| t.schema.as_str()).collect();
     for schema in requested {
         if !present.contains(schema) {
-            eprintln!("avertissement : aucune table trouvée dans le schema « {schema} »");
+            eprintln!("warning: no table found in schema \"{schema}\"");
         }
     }
 }
 
-/// Avertit sur stderr pour chaque table demandée introuvable.
+/// Warns on stderr for each requested table that couldn't be found.
 fn warn_missing_tables(requested: &[&str], found: &[Table]) {
     if requested.is_empty() {
         return;
@@ -409,14 +409,14 @@ fn warn_missing_tables(requested: &[&str], found: &[Table]) {
     if !missing.is_empty() {
         let list = missing
             .iter()
-            .map(|t| format!("« {t} »"))
+            .map(|t| format!("\"{t}\""))
             .collect::<Vec<_>>()
             .join(", ");
-        eprintln!("avertissement : table(s) introuvable(s) : {list}");
+        eprintln!("warning: table(s) not found: {list}");
     }
 }
 
-/// Vérifie à la compilation que les paramètres de requête restent `ToSql`.
+/// Verifies at compile time that the query parameters remain `ToSql`.
 const _: fn() = || {
     fn assert_to_sql<T: ToSql + Sync>() {}
     assert_to_sql::<Vec<Oid>>();

@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-/// Représente une table avec toutes ses métadonnées.
+/// Represents a table with all its metadata.
 #[derive(Debug, Clone, Default)]
 pub struct Table {
     pub schema: String,
@@ -15,21 +15,21 @@ pub struct Table {
 }
 
 impl Table {
-    /// Clé d'identification unique d'une table : `(schema, nom)`.
+    /// Unique identifying key of a table: `(schema, name)`.
     #[must_use]
     pub fn key(&self) -> (&str, &str) {
         (&self.schema, &self.name)
     }
 }
 
-/// Colonne d'une table.
+/// Column of a table.
 #[derive(Debug, Clone)]
 pub struct Column {
     pub name: String,
     pub data_type: String,
 }
 
-/// Contrainte de clé étrangère (potentiellement multi-colonnes).
+/// Foreign key constraint (potentially multi-column).
 #[derive(Debug, Clone)]
 pub struct ForeignKey {
     pub name: String,
@@ -39,21 +39,21 @@ pub struct ForeignKey {
     pub to_columns: Vec<String>,
 }
 
-/// Contrainte UNIQUE.
+/// UNIQUE constraint.
 #[derive(Debug, Clone)]
 pub struct UniqueConstraint {
     pub name: String,
     pub columns: Vec<String>,
 }
 
-/// Contrainte CHECK.
+/// CHECK constraint.
 #[derive(Debug, Clone)]
 pub struct CheckConstraint {
     pub name: String,
     pub definition: String,
 }
 
-/// Information sur un index.
+/// Information about an index.
 #[derive(Debug, Clone)]
 pub struct IndexInfo {
     pub name: String,
@@ -61,16 +61,16 @@ pub struct IndexInfo {
     pub is_unique: bool,
 }
 
-/// Schemas systèmes toujours exclus de la génération.
+/// System schemas always excluded from generation.
 pub const SYSTEM_SCHEMAS: [&str; 2] = ["information_schema", "pg_catalog"];
 
-/// Filtre les tables selon les schemas et tables spécifiés.
+/// Filters tables based on the specified schemas and tables.
 ///
-/// Une liste de filtres vide signifie « pas de filtrage » sur le critère
-/// correspondant ; les schemas systèmes restent exclus dans tous les cas.
-/// `ignore_tables` retire les tables nommées du résultat, quel que soit leur
-/// schéma ; `tables_filter` et `ignore_tables` sont mutuellement exclusifs
-/// côté CLI (clap `conflicts_with`), donc au plus un des deux est non vide ici.
+/// An empty filter list means "no filtering" on the corresponding criterion;
+/// system schemas remain excluded in all cases. `ignore_tables` removes the
+/// named tables from the result, regardless of their schema; `tables_filter`
+/// and `ignore_tables` are mutually exclusive on the CLI side (clap
+/// `conflicts_with`), so at most one of the two is non-empty here.
 #[must_use]
 pub fn filter_tables(
     tables: Vec<Table>,

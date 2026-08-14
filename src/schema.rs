@@ -1,10 +1,23 @@
 use std::collections::HashSet;
 
+/// Kind of catalog relation an entity was extracted from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TableKind {
+    /// Ordinary or partitioned table.
+    #[default]
+    Table,
+    /// Plain (non-materialized) view.
+    View,
+    /// Materialized view.
+    MaterializedView,
+}
+
 /// Represents a table with all its metadata.
 #[derive(Debug, Clone, Default)]
 pub struct Table {
     pub schema: String,
     pub name: String,
+    pub kind: TableKind,
     pub columns: Vec<Column>,
     pub primary_keys: Vec<String>,
     pub foreign_keys: Vec<ForeignKey>,
@@ -27,6 +40,9 @@ impl Table {
 pub struct Column {
     pub name: String,
     pub data_type: String,
+    /// Raw `DEFAULT` expression, if any. Never set for views or materialized
+    /// views: PostgreSQL doesn't allow column defaults on them.
+    pub default: Option<String>,
 }
 
 /// Foreign key constraint (potentially multi-column).
@@ -107,6 +123,15 @@ mod tests {
         }
     }
 
+    fn view(schema: &str, name: &str, kind: TableKind) -> Table {
+        Table {
+            schema: schema.to_string(),
+            name: name.to_string(),
+            kind,
+            ..Table::default()
+        }
+    }
+
     #[test]
     fn filter_tables_excludes_system_schemas_by_default() {
         let tables = vec![
@@ -157,6 +182,29 @@ mod tests {
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].name, "users");
+    }
+
+    #[test]
+    fn filter_tables_treats_views_and_materialized_views_like_tables() {
+        let tables = vec![
+            table("public", "users"),
+            view("public", "active_users", TableKind::View),
+            view("public", "users_summary", TableKind::MaterializedView),
+            view("extended", "audit_view", TableKind::View),
+        ];
+
+        // --schema public --table active_users : le filtre par schéma et par
+        // nom s'applique aux vues exactement comme aux tables.
+        let result = filter_tables(tables.clone(), &["public"], &["active_users"], &[]);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].key(), ("public", "active_users"));
+        assert_eq!(result[0].kind, TableKind::View);
+
+        // --ignore-tables users_summary : exclut la vue matérialisée nommée,
+        // quel que soit son schéma.
+        let result = filter_tables(tables, &["public"], &[], &["users_summary"]);
+        let names: Vec<&str> = result.iter().map(|t| t.name.as_str()).collect();
+        assert_eq!(names, vec!["users", "active_users"]);
     }
 
     #[test]

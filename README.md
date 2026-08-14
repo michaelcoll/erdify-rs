@@ -1,5 +1,8 @@
 # erdify-rs
 
+[![codecov](https://codecov.io/gh/michaelcoll/erdify-rs/graph/badge.svg?token=oHYBQAJWwU)](https://codecov.io/gh/michaelcoll/erdify-rs)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 CLI tool to generate Mermaid ER (Entity-Relationship) diagrams from PostgreSQL databases.
 
 ## Install

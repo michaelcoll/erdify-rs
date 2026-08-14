@@ -3,6 +3,7 @@ name = "erdify-rs"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
+repository = "https://github.com/michaelcoll/erdify-rs"
 description = "CLI tool to generate Mermaid ER diagrams from PostgreSQL databases"
 
 [[bin]]

@@ -11,16 +11,17 @@ mise run setup         # One-time: fetch cargo dependencies
 
 ## Command Summary
 
-| Action              | Command            | Alias         |
-| ------------------- | ------------------ | ------------- |
-| **All checks**      | `mise run checks`  | —             |
-| **Tests**           | `mise run test`    | —             |
-| **Lint**            | `mise run lint`    | —             |
-| **Format code**     | `mise run format`  | `mise run f`  |
-| **Build**           | `mise run build`   | `mise run bb` |
-| **Run CLI**         | `mise run run`     | —             |
-| **Clean artifacts** | `mise run clean`   | —             |
-| **Upgrade deps**    | `mise run upgrade` | —             |
+| Action              | Command                     | Alias         |
+| ------------------- | --------------------------- | ------------- |
+| **All checks**      | `mise run checks`           | —             |
+| **Tests**           | `mise run test`             | —             |
+| **Coverage**        | `mise run coverage-backend` | —             |
+| **Lint**            | `mise run lint`             | —             |
+| **Format code**     | `mise run format`           | `mise run f`  |
+| **Build**           | `mise run build`            | `mise run bb` |
+| **Run CLI**         | `mise run run`              | —             |
+| **Clean artifacts** | `mise run clean`            | —             |
+| **Upgrade deps**    | `mise run upgrade`          | —             |
 
 ## Detailed Commands
 
@@ -31,6 +32,10 @@ mise run setup         # One-time: fetch cargo dependencies
 ### Test
 
 - `mise run test`, i.e. `cargo nextest run --status-level slow`
+
+### Coverage
+
+- `mise run coverage-backend` → `cargo llvm-cov nextest --status-level slow --locked --workspace --all-features --tests --ignore-filename-regex "main.rs" --lcov --output-path lcov.info`
 
 ### Lint
 

@@ -14,7 +14,7 @@ use std::io::Write as _;
 ///
 /// # Errors
 ///
-/// Retourne une [`ErdifyError`] si l'url est invalide, si la connexion ou une
+/// Retourne une [ErdifyError] si l'url est invalide, si la connexion ou une
 /// requête échoue, si aucune table ne correspond aux filtres, ou si l'écriture
 /// du fichier de sortie échoue.
 pub async fn run(args: Args) -> Result<(), ErdifyError> {

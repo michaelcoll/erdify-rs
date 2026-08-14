@@ -572,4 +572,80 @@ mod tests {
 
         assert!(tables[0].columns.is_empty());
     }
+
+    #[test]
+    fn assemble_tables_attaches_indexes() {
+        let rows = vec![table_row(1, "public", "users")];
+        let indexes = vec![IndexRow {
+            table_oid: 1,
+            name: "idx_users_email".to_string(),
+            columns: vec!["email".to_string()],
+            is_unique: true,
+        }];
+
+        let tables = assemble_tables(rows, Vec::new(), Vec::new(), indexes);
+
+        assert_eq!(tables[0].indexes.len(), 1);
+        assert_eq!(tables[0].indexes[0].name, "idx_users_email");
+        assert!(tables[0].indexes[0].is_unique);
+    }
+
+    #[test]
+    fn assemble_tables_ignores_indexes_of_unknown_tables() {
+        let rows = vec![table_row(1, "public", "users")];
+        let indexes = vec![IndexRow {
+            table_oid: 999,
+            name: "ghost_idx".to_string(),
+            columns: Vec::new(),
+            is_unique: false,
+        }];
+
+        let tables = assemble_tables(rows, Vec::new(), Vec::new(), indexes);
+
+        assert!(tables[0].indexes.is_empty());
+    }
+
+    #[test]
+    fn warn_missing_schemas_does_nothing_when_no_schema_requested() {
+        warn_missing_schemas(&[], &[]);
+    }
+
+    #[test]
+    fn warn_missing_schemas_does_nothing_when_all_present() {
+        let found = vec![table_row(1, "public", "users")];
+        warn_missing_schemas(&["public"], &found);
+    }
+
+    #[test]
+    fn warn_missing_schemas_warns_on_absent_schema() {
+        let found = vec![table_row(1, "public", "users")];
+        // Ne panique pas : le message est écrit sur stderr, sans valeur de retour à vérifier.
+        warn_missing_schemas(&["public", "extended"], &found);
+    }
+
+    #[test]
+    fn warn_missing_tables_does_nothing_when_no_table_requested() {
+        warn_missing_tables(&[], &[]);
+    }
+
+    #[test]
+    fn warn_missing_tables_does_nothing_when_all_present() {
+        let table = Table {
+            schema: "public".to_string(),
+            name: "users".to_string(),
+            ..Table::default()
+        };
+        warn_missing_tables(&["users"], &[table]);
+    }
+
+    #[test]
+    fn warn_missing_tables_warns_on_absent_table() {
+        let table = Table {
+            schema: "public".to_string(),
+            name: "users".to_string(),
+            ..Table::default()
+        };
+        // Ne panique pas : le message est écrit sur stderr, sans valeur de retour à vérifier.
+        warn_missing_tables(&["users", "ghost"], &[table]);
+    }
 }

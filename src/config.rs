@@ -2,44 +2,44 @@ use crate::errors::ErdifyError;
 use clap::Parser;
 use std::env;
 
-/// Générateur de diagrammes ER Mermaid depuis PostgreSQL.
+/// Mermaid ER diagram generator from PostgreSQL.
 #[derive(Parser, Debug)]
 #[command(name = "erdify", version, about)]
 pub struct Args {
-    /// URL de connexion PostgreSQL (ex: postgresql://user:pass@host:5432/dbname)
+    /// PostgreSQL connection URL (ex: postgresql://user:pass@host:5432/dbname)
     #[arg(short, long)]
     pub url: Option<String>,
 
-    /// Schemas à inclure, séparés par des virgules (ex: public,extended)
+    /// Schemas to include, comma-separated (ex: public,extended)
     #[arg(long)]
     pub schema: Option<String>,
 
-    /// Tables à inclure, séparées par des virgules (ex: users,orders)
+    /// Tables to include, comma-separated (ex: users,orders)
     #[arg(long, conflicts_with = "ignore_tables")]
     pub table: Option<String>,
 
-    /// Tables à exclure, séparées par des virgules (ex: logs,audit_trail)
+    /// Tables to exclude, comma-separated (ex: logs,audit_trail)
     #[arg(long, conflicts_with = "table")]
     pub ignore_tables: Option<String>,
 
-    /// Mode minimal : colonnes uniquement, sans métadonnées PK/FK
+    /// Minimal mode: columns only, without PK/FK metadata
     #[arg(long, conflicts_with = "full")]
     pub minimal: bool,
 
-    /// Mode complet : colonnes + PK/FK/NOT NULL + relations + contraintes + indexes
+    /// Full mode: columns + PK/FK/NOT NULL + relationships + constraints + indexes
     #[arg(long, conflicts_with = "minimal")]
     pub full: bool,
 
-    /// Fichier de sortie (par défaut : stdout)
+    /// Output file (default: stdout)
     #[arg(short, long)]
     pub output: Option<String>,
 
-    /// Titre du diagramme (par défaut : extrait du nom de la BDD)
+    /// Diagram title (default: derived from the database name)
     #[arg(long)]
     pub title: Option<String>,
 }
 
-/// Information de connexion extraite d'une URL PostgreSQL.
+/// Connection information extracted from a PostgreSQL URL.
 #[derive(Debug)]
 pub struct ConnectionInfo {
     pub host: String,
@@ -50,7 +50,7 @@ pub struct ConnectionInfo {
 }
 
 impl Args {
-    /// Parse les valeurs séparées par virgules en un vecteur de &str.
+    /// Parses comma-separated values into a vector of &str.
     pub fn parse_csv<'a>(&self, value: Option<&'a str>) -> Vec<&'a str> {
         match value {
             Some(v) if !v.is_empty() => v
@@ -62,7 +62,7 @@ impl Args {
         }
     }
 
-    /// Détermine le mode de sortie.
+    /// Determines the output mode.
     pub fn output_mode(&self) -> OutputMode {
         if self.minimal {
             OutputMode::Minimal
@@ -73,7 +73,7 @@ impl Args {
         }
     }
 
-    /// Construit ConnectionInfo depuis --url ou DATABASE_URL.
+    /// Builds ConnectionInfo from --url or DATABASE_URL.
     pub fn parse_url(&self) -> Result<ConnectionInfo, ErdifyError> {
         let url_str = match &self.url {
             Some(u) if !u.is_empty() => Some(u.clone()),
@@ -86,7 +86,7 @@ impl Args {
                 Ok(v) if !v.is_empty() => v,
                 _ => {
                     return Err(ErdifyError::InvalidUrl(
-                        "aucune url fournie ; utilisez --url ou la variable DATABASE_URL".into(),
+                        "no url provided; use --url or the DATABASE_URL variable".into(),
                     ));
                 }
             },
@@ -96,28 +96,28 @@ impl Args {
     }
 }
 
-/// Port PostgreSQL par défaut, utilisé quand l'url n'en précise pas.
+/// Default PostgreSQL port, used when the url doesn't specify one.
 const DEFAULT_PORT: u16 = 5432;
 
-/// Parse une URL PostgreSQL au format `postgresql://user:pass@host:port/dbname`.
+/// Parses a PostgreSQL URL in the `postgresql://user:pass@host:port/dbname` format.
 fn parse_postgres_url(url: &str) -> Result<ConnectionInfo, ErdifyError> {
     let url = url::Url::parse(url)
-        .map_err(|e| ErdifyError::InvalidUrl(format!("format d'url invalide : {e}")))?;
+        .map_err(|e| ErdifyError::InvalidUrl(format!("invalid url format: {e}")))?;
 
     let scheme = url.scheme();
     if scheme != "postgresql" && scheme != "postgres" && scheme != "pg" {
         return Err(ErdifyError::InvalidUrl(format!(
-            "schéma d'url attendu : postgresql/postgres/pg, obtenu : {scheme}"
+            "expected url scheme: postgresql/postgres/pg, got: {scheme}"
         )));
     }
 
     let host = url
         .host_str()
         .filter(|h| !h.is_empty())
-        .ok_or_else(|| ErdifyError::InvalidUrl("pas d'hôte dans l'url".into()))?
+        .ok_or_else(|| ErdifyError::InvalidUrl("no host in the url".into()))?
         .to_string();
 
-    // `port_or_known_default` ne connaît pas le scheme postgresql.
+    // `port_or_known_default` doesn't know the postgresql scheme.
     let port = url.port().unwrap_or(DEFAULT_PORT);
 
     let database = url
@@ -125,10 +125,10 @@ fn parse_postgres_url(url: &str) -> Result<ConnectionInfo, ErdifyError> {
         .and_then(|mut segs| segs.next())
         .filter(|s| !s.is_empty())
         .map(percent_decode)
-        .ok_or_else(|| ErdifyError::InvalidUrl("pas de nom de base dans l'url".into()))?;
+        .ok_or_else(|| ErdifyError::InvalidUrl("no database name in the url".into()))?;
 
-    // Les identifiants sont percent-encodés dans une url : `p%40ss` doit être
-    // transmis à PostgreSQL comme `p@ss`.
+    // Credentials are percent-encoded within a url: `p%40ss` must be
+    // passed to PostgreSQL as `p@ss`.
     let user = percent_decode(url.username());
     let password = url.password().map(percent_decode).unwrap_or_default();
 
@@ -141,22 +141,22 @@ fn parse_postgres_url(url: &str) -> Result<ConnectionInfo, ErdifyError> {
     })
 }
 
-/// Décode les séquences `%XX` d'un composant d'url, en le laissant tel quel
-/// si le résultat n'est pas de l'UTF-8 valide.
+/// Decodes the `%XX` sequences of a url component, leaving it unchanged
+/// if the result isn't valid UTF-8.
 fn percent_decode(raw: &str) -> String {
     percent_encoding::percent_decode_str(raw)
         .decode_utf8()
         .map_or_else(|_| raw.to_string(), |s| s.into_owned())
 }
 
-/// Mode de sortie du diagramme.
+/// Diagram output mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OutputMode {
-    /// Colonnes uniquement, sans PK/FK.
+    /// Columns only, without PK/FK.
     Minimal,
-    /// Colonnes + PK/FK (par défaut).
+    /// Columns + PK/FK (default).
     Default,
-    /// Tout : colonnes + PK/FK/NOT NULL + relations + contraintes + indexes.
+    /// Everything: columns + PK/FK/NOT NULL + relationships + constraints + indexes.
     Full,
 }
 
@@ -271,7 +271,7 @@ mod tests {
 
     #[test]
     fn test_parse_url_no_url_no_env() {
-        // Sauvegarde et restaure DATABASE_URL pour éviter les effets de bord.
+        // Save and restore DATABASE_URL to avoid side effects.
         let orig = env::var("DATABASE_URL").ok();
         unsafe {
             env::remove_var("DATABASE_URL");
@@ -281,7 +281,7 @@ mod tests {
         let result = args.parse_url();
         assert!(result.is_err());
 
-        // Restauration.
+        // Restore.
         if let Some(val) = orig {
             unsafe {
                 env::set_var("DATABASE_URL", val);

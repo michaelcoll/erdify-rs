@@ -1,4 +1,4 @@
-//! Génération de diagrammes ER Mermaid depuis une base PostgreSQL.
+//! Generates Mermaid ER diagrams from a PostgreSQL database.
 
 pub mod config;
 pub mod db;
@@ -10,13 +10,13 @@ use crate::config::Args;
 use crate::errors::ErdifyError;
 use std::io::Write as _;
 
-/// Point d'entrée de l'application.
+/// Application entry point.
 ///
 /// # Errors
 ///
-/// Retourne une [ErdifyError] si l'url est invalide, si la connexion ou une
-/// requête échoue, si aucune table ne correspond aux filtres, ou si l'écriture
-/// du fichier de sortie échoue.
+/// Returns an [ErdifyError] if the url is invalid, if the connection or a
+/// query fails, if no table matches the filters, or if writing the output
+/// file fails.
 pub async fn run(args: Args) -> Result<(), ErdifyError> {
     let url_info = args.parse_url()?;
 
@@ -37,8 +37,8 @@ pub async fn run(args: Args) -> Result<(), ErdifyError> {
     if let Some(path) = &args.output {
         tokio::fs::write(path, output).await?;
     } else {
-        // `output` se termine déjà par un saut de ligne : `print!` évite la
-        // ligne vide supplémentaire qu'ajouterait `println!`.
+        // `output` already ends with a newline: `print!` avoids the extra
+        // blank line that `println!` would add.
         let mut stdout = std::io::stdout().lock();
         stdout.write_all(output.as_bytes())?;
         stdout.flush()?;

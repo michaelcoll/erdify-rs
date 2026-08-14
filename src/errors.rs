@@ -1,25 +1,25 @@
-/// Types d'erreur pour erdify.
+/// Error types for erdify.
 #[derive(Debug, thiserror::Error)]
 pub enum ErdifyError {
-    #[error("erreur d'url invalide : {0}")]
+    #[error("invalid url error: {0}")]
     InvalidUrl(String),
 
-    #[error("erreur de connexion à la base : {0}")]
+    #[error("database connection error: {0}")]
     DatabaseConnection(String),
 
-    #[error("erreur lors de la requête : {0}")]
+    #[error("query error: {0}")]
     QueryError(String),
 
-    #[error("erreur d'écriture de fichier : {0}")]
+    #[error("file write error: {0}")]
     IoError(#[from] std::io::Error),
 
-    #[error("aucune table trouvée pour les filtres spécifiés")]
+    #[error("no table found for the specified filters")]
     NoTablesFound,
 
-    #[error("timeout de connexion (10s dépassé)")]
+    #[error("connection timeout (10s exceeded)")]
     ConnectionTimeout,
 
-    #[error("aucun schéma valide trouvé")]
+    #[error("no valid schema found")]
     NoValidSchemas,
 }
 
@@ -35,59 +35,47 @@ mod tests {
 
     #[test]
     fn invalid_url_displays_the_reason() {
-        let err = ErdifyError::InvalidUrl("pas d'hôte dans l'url".to_string());
-        assert_eq!(
-            err.to_string(),
-            "erreur d'url invalide : pas d'hôte dans l'url"
-        );
+        let err = ErdifyError::InvalidUrl("no host in the url".to_string());
+        assert_eq!(err.to_string(), "invalid url error: no host in the url");
     }
 
     #[test]
     fn database_connection_displays_the_reason() {
-        let err = ErdifyError::DatabaseConnection("connexion refusée".to_string());
+        let err = ErdifyError::DatabaseConnection("connection refused".to_string());
         assert_eq!(
             err.to_string(),
-            "erreur de connexion à la base : connexion refusée"
+            "database connection error: connection refused"
         );
     }
 
     #[test]
     fn query_error_displays_the_reason() {
-        let err = ErdifyError::QueryError("relation inconnue".to_string());
-        assert_eq!(
-            err.to_string(),
-            "erreur lors de la requête : relation inconnue"
-        );
+        let err = ErdifyError::QueryError("unknown relation".to_string());
+        assert_eq!(err.to_string(), "query error: unknown relation");
     }
 
     #[test]
     fn no_tables_found_has_a_fixed_message() {
         let err = ErdifyError::NoTablesFound;
-        assert_eq!(
-            err.to_string(),
-            "aucune table trouvée pour les filtres spécifiés"
-        );
+        assert_eq!(err.to_string(), "no table found for the specified filters");
     }
 
     #[test]
     fn connection_timeout_has_a_fixed_message() {
         let err = ErdifyError::ConnectionTimeout;
-        assert_eq!(err.to_string(), "timeout de connexion (10s dépassé)");
+        assert_eq!(err.to_string(), "connection timeout (10s exceeded)");
     }
 
     #[test]
     fn no_valid_schemas_has_a_fixed_message() {
         let err = ErdifyError::NoValidSchemas;
-        assert_eq!(err.to_string(), "aucun schéma valide trouvé");
+        assert_eq!(err.to_string(), "no valid schema found");
     }
 
     #[test]
     fn io_error_is_wrapped_and_displayed() {
-        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "fichier introuvable");
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
         let err: ErdifyError = io_err.into();
-        assert_eq!(
-            err.to_string(),
-            "erreur d'écriture de fichier : fichier introuvable"
-        );
+        assert_eq!(err.to_string(), "file write error: file not found");
     }
 }

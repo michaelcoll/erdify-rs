@@ -1,23 +1,23 @@
-//! Rendu du schéma en `erDiagram` Mermaid.
+//! Renders the schema as a Mermaid `erDiagram`.
 //!
-//! La sortie est un document Markdown contenant un bloc ```` ```mermaid ````
-//! valide : entités déclarées avec `NOM { type colonne CLÉS "commentaire" }`
-//! et relations au format `PARENT ||--o{ ENFANT : "label"`.
+//! The output is a Markdown document containing a valid ```` ```mermaid ````
+//! block: entities declared with `NAME { type column KEYS "comment" }`
+//! and relationships formatted as `PARENT ||--o{ CHILD : "label"`.
 
 use crate::config::{Args, OutputMode};
 use crate::schema::Table;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 
-/// Indentation d'une entité dans le bloc `erDiagram`.
+/// Indentation of an entity within the `erDiagram` block.
 const ENTITY_INDENT: &str = "    ";
-/// Indentation d'un attribut dans le bloc d'une entité.
+/// Indentation of an attribute within an entity's block.
 const ATTR_INDENT: &str = "        ";
 
-/// Clé d'identification d'une table : `(schema, nom)`.
+/// Identifying key of a table: `(schema, name)`.
 type TableKey<'a> = (&'a str, &'a str);
 
-/// Génère le document Markdown complet (titre + bloc Mermaid) pour toutes les tables.
+/// Generates the full Markdown document (title + Mermaid block) for all tables.
 #[must_use]
 pub fn render_all(tables: &[Table], mode: OutputMode, args: &Args, database: &str) -> String {
     let mut output = String::new();
@@ -25,8 +25,8 @@ pub fn render_all(tables: &[Table], mode: OutputMode, args: &Args, database: &st
     let title = generate_title(args, database, tables);
     let _ = writeln!(output, "# {title}\n");
 
-    // Les noms d'entités ne sont préfixés par le schema que si plusieurs
-    // schemas coexistent : sinon `users` est plus lisible que `public.users`.
+    // Entity names are only prefixed with the schema when multiple schemas
+    // coexist: otherwise `users` is more readable than `public.users`.
     let qualify = uses_multiple_schemas(tables);
     let names: HashMap<TableKey<'_>, String> = tables
         .iter()
@@ -36,12 +36,12 @@ pub fn render_all(tables: &[Table], mode: OutputMode, args: &Args, database: &st
     output.push_str("```mermaid\nerDiagram\n");
 
     for table in tables {
-        let name = names.get(&table.key()).expect("entité enregistrée");
+        let name = names.get(&table.key()).expect("registered entity");
         output.push_str(&render_entity(table, name, mode));
     }
 
-    // Les relations ne sont dessinées qu'en mode complet ; en mode défaut les
-    // FK sont uniquement marquées sur les colonnes.
+    // Relationships are only drawn in full mode; in default mode FKs are
+    // only marked on the columns themselves.
     if mode == OutputMode::Full {
         output.push_str(&render_relationships(tables, &names));
     }
@@ -55,7 +55,7 @@ pub fn render_all(tables: &[Table], mode: OutputMode, args: &Args, database: &st
     output
 }
 
-/// Indique si les tables proviennent de plusieurs schemas.
+/// Indicates whether the tables come from multiple schemas.
 fn uses_multiple_schemas(tables: &[Table]) -> bool {
     let mut schemas = tables.iter().map(|t| t.schema.as_str());
     let Some(first) = schemas.next() else {
@@ -64,7 +64,7 @@ fn uses_multiple_schemas(tables: &[Table]) -> bool {
     schemas.any(|s| s != first)
 }
 
-/// Construit le nom d'entité Mermaid d'une table, en le quotant si nécessaire.
+/// Builds a table's Mermaid entity name, quoting it if necessary.
 fn entity_name(table: &Table, qualify: bool) -> String {
     let raw = if qualify {
         format!("{}.{}", table.schema, table.name)
@@ -74,12 +74,12 @@ fn entity_name(table: &Table, qualify: bool) -> String {
     quote_if_needed(&raw)
 }
 
-/// Génère le bloc d'une seule entité.
+/// Generates the block for a single entity.
 fn render_entity(table: &Table, name: &str, mode: OutputMode) -> String {
     let mut s = String::new();
 
-    // Une entité sans colonne se déclare sans bloc d'attributs : un bloc vide
-    // n'est pas accepté par la grammaire Mermaid.
+    // An entity with no columns is declared without an attribute block: an
+    // empty block isn't accepted by the Mermaid grammar.
     if table.columns.is_empty() {
         let _ = writeln!(s, "{ENTITY_INDENT}{name}");
         return s;
@@ -122,7 +122,7 @@ fn render_entity(table: &Table, name: &str, mode: OutputMode) -> String {
             let _ = write!(s, " {}", keys.join(", "));
         }
 
-        // NOT NULL est redondant avec PK, on ne l'affiche que pour les autres.
+        // NOT NULL is redundant with PK, so it's only shown for other columns.
         if mode == OutputMode::Full
             && !pk.contains(col_name)
             && table.not_null_cols.contains(col_name)
@@ -137,10 +137,10 @@ fn render_entity(table: &Table, name: &str, mode: OutputMode) -> String {
     s
 }
 
-/// Colonnes couvertes par une contrainte ou un index UNIQUE mono-colonne.
+/// Columns covered by a single-column UNIQUE constraint or index.
 ///
-/// Les contraintes multi-colonnes sont ignorées : marquer chaque colonne `UK`
-/// affirmerait à tort que chacune est unique isolément.
+/// Multi-column constraints are ignored: marking each column `UK` would
+/// wrongly assert that each one is unique on its own.
 fn single_column_unique_names(table: &Table) -> HashSet<&str> {
     let from_constraints = table
         .unique_constraints
@@ -157,7 +157,7 @@ fn single_column_unique_names(table: &Table) -> HashSet<&str> {
     from_constraints.chain(from_indexes).collect()
 }
 
-/// Génère les relations Mermaid entre les tables avec cardinalités déduites.
+/// Generates the Mermaid relationships between tables with inferred cardinalities.
 fn render_relationships(tables: &[Table], names: &HashMap<TableKey<'_>, String>) -> String {
     let mut s = String::new();
     let mut seen: HashSet<(&str, &str, String)> = HashSet::new();
@@ -168,8 +168,8 @@ fn render_relationships(tables: &[Table], names: &HashMap<TableKey<'_>, String>)
         };
 
         for fk in &table.foreign_keys {
-            // Une FK pointant hors du périmètre filtré n'a pas d'entité cible :
-            // la dessiner créerait une entité fantôme dans le diagramme.
+            // An FK pointing outside the filtered scope has no target entity:
+            // drawing it would create a phantom entity in the diagram.
             let Some(parent) = names.get(&(fk.to_schema.as_str(), fk.to_table.as_str())) else {
                 continue;
             };
@@ -179,15 +179,15 @@ fn render_relationships(tables: &[Table], names: &HashMap<TableKey<'_>, String>)
                 continue;
             }
 
-            // Côté parent : la ligne enfant peut exister sans parent si une des
-            // colonnes de la FK est nullable.
+            // Parent side: the child row can exist without a parent if one of
+            // the FK columns is nullable.
             let all_not_null = fk
                 .from_columns
                 .iter()
                 .all(|c| table.not_null_cols.contains(c));
             let left = if all_not_null { "||" } else { "|o" };
 
-            // Côté enfant : au plus une ligne si la FK est elle-même unique (1:1).
+            // Child side: at most one row if the FK is itself unique (1:1).
             let right = if is_unique_set(table, &fk.from_columns) {
                 "o|"
             } else {
@@ -204,7 +204,7 @@ fn render_relationships(tables: &[Table], names: &HashMap<TableKey<'_>, String>)
     s
 }
 
-/// Indique si l'ensemble de colonnes est couvert par une contrainte ou un index UNIQUE.
+/// Indicates whether the column set is covered by a UNIQUE constraint or index.
 fn is_unique_set(table: &Table, columns: &[String]) -> bool {
     let target: HashSet<&str> = columns.iter().map(String::as_str).collect();
 
@@ -220,10 +220,10 @@ fn is_unique_set(table: &Table, columns: &[String]) -> bool {
     constraint_match || index_match
 }
 
-/// Génère la section Markdown listant indexes et contraintes (mode complet).
+/// Generates the Markdown section listing indexes and constraints (full mode).
 ///
-/// La grammaire `erDiagram` ne connaît pas les notes : ces informations sont
-/// rendues en Markdown, sous le bloc Mermaid, pour rester affichables.
+/// The `erDiagram` grammar has no notion of notes: this information is
+/// rendered as Markdown, below the Mermaid block, so it stays displayable.
 fn render_extras(tables: &[Table], qualify: bool) -> String {
     let mut s = String::new();
 
@@ -234,7 +234,7 @@ fn render_extras(tables: &[Table], qualify: bool) -> String {
         return s;
     }
 
-    s.push_str("\n## Indexes et contraintes\n");
+    s.push_str("\n## Indexes and constraints\n");
 
     for table in tables {
         if table.indexes.is_empty()
@@ -253,7 +253,7 @@ fn render_extras(tables: &[Table], qualify: bool) -> String {
 
         for idx in &table.indexes {
             let kind = if idx.is_unique {
-                "index unique"
+                "unique index"
             } else {
                 "index"
             };
@@ -263,28 +263,24 @@ fn render_extras(tables: &[Table], qualify: bool) -> String {
         for uni in &table.unique_constraints {
             let _ = writeln!(
                 s,
-                "- contrainte unique `{}` ({})",
+                "- unique constraint `{}` ({})",
                 uni.name,
                 code_list(&uni.columns)
             );
         }
 
         for chk in &table.check_constraints {
-            let _ = writeln!(
-                s,
-                "- contrainte check `{}` : `{}`",
-                chk.name, chk.definition
-            );
+            let _ = writeln!(s, "- check constraint `{}`: `{}`", chk.name, chk.definition);
         }
     }
 
     s
 }
 
-/// Formate une liste de colonnes en code Markdown : `` `a`, `b` ``.
+/// Formats a list of columns as Markdown code: `` `a`, `b` ``.
 ///
-/// Un index sur expression (`lower(name)`) n'a aucune colonne de catalogue
-/// rattachée : la liste vide est rendue explicitement.
+/// An expression index (`lower(name)`) has no catalog column attached to it:
+/// the empty list is rendered explicitly.
 fn code_list(columns: &[String]) -> String {
     if columns.is_empty() {
         return "expression".to_string();
@@ -296,11 +292,11 @@ fn code_list(columns: &[String]) -> String {
         .join(", ")
 }
 
-/// Construit le titre du diagramme.
+/// Builds the diagram's title.
 ///
-/// À défaut de `--title`, le titre liste les schemas réellement représentés
-/// plutôt que ceux demandés : sans `--schema`, annoncer « public » serait faux
-/// dès que la base contient d'autres schemas.
+/// Absent `--title`, the title lists the schemas actually rendered rather
+/// than the ones requested: without `--schema`, announcing "public" would be
+/// wrong as soon as the database contains other schemas.
 fn generate_title(args: &Args, database: &str, tables: &[Table]) -> String {
     if let Some(title) = &args.title {
         return title.clone();
@@ -317,7 +313,7 @@ fn generate_title(args: &Args, database: &str, tables: &[Table]) -> String {
     }
 }
 
-/// Quote un nom d'entité s'il n'est pas un identifiant Mermaid simple.
+/// Quotes an entity name if it isn't a plain Mermaid identifier.
 fn quote_if_needed(raw: &str) -> String {
     let is_plain = !raw.is_empty()
         && raw
@@ -328,16 +324,16 @@ fn quote_if_needed(raw: &str) -> String {
     if is_plain {
         raw.to_string()
     } else {
-        // Un nom quoté ne peut pas contenir de guillemet double.
+        // A quoted name can't contain a double quote.
         format!("\"{}\"", raw.replace('"', "'"))
     }
 }
 
-/// Normalise un type PostgreSQL en type d'attribut Mermaid.
+/// Normalizes a PostgreSQL type into a Mermaid attribute type.
 ///
-/// Les espaces et virgules (`character varying`, `numeric(10,2)`) ne sont pas
-/// acceptés par la grammaire et sont remplacés par des `_`. Un type vide est
-/// rendu `unknown`.
+/// Spaces and commas (`character varying`, `numeric(10,2)`) aren't accepted
+/// by the grammar and are replaced with `_`. An empty type is rendered as
+/// `unknown`.
 fn sanitize_type(raw: &str) -> String {
     let mut out = String::with_capacity(raw.len());
     let mut pending_underscore = false;
@@ -362,7 +358,7 @@ fn sanitize_type(raw: &str) -> String {
     trimmed.to_string()
 }
 
-/// Normalise un nom de colonne en identifiant d'attribut Mermaid.
+/// Normalizes a column name into a Mermaid attribute identifier.
 fn sanitize_ident(raw: &str) -> String {
     let mut out: String = raw
         .chars()
@@ -384,7 +380,7 @@ fn sanitize_ident(raw: &str) -> String {
     out
 }
 
-/// Normalise un texte destiné à un commentaire ou un label Mermaid entre guillemets.
+/// Normalizes text meant for a Mermaid comment or label wrapped in quotes.
 fn sanitize_comment(raw: &str) -> String {
     raw.replace('"', "'").replace(['\n', '\r'], " ")
 }
@@ -477,7 +473,7 @@ mod tests {
         assert!(result.contains("    users {\n"), "{result}");
         assert!(result.contains("        integer id PK\n"), "{result}");
         assert!(result.contains("    }\n"), "{result}");
-        assert!(!result.contains('['), "pas de syntaxe crochets : {result}");
+        assert!(!result.contains('['), "no bracket syntax: {result}");
     }
 
     #[test]
@@ -613,7 +609,7 @@ mod tests {
 
         let result = render_all(&tables, OutputMode::Full, &args(), "d");
 
-        let (diagram, extras) = result.split_once("\n## Indexes et contraintes\n").unwrap();
+        let (diagram, extras) = result.split_once("\n## Indexes and constraints\n").unwrap();
         assert!(diagram.ends_with("```\n"), "{diagram}");
         assert!(
             extras.contains("- index `idx_orders_user_id` (`user_id`)"),
@@ -621,7 +617,7 @@ mod tests {
         );
         assert!(
             extras.contains(
-                "- contrainte check `chk_orders_total_positive` : `CHECK ((total > (0)::numeric))`"
+                "- check constraint `chk_orders_total_positive`: `CHECK ((total > (0)::numeric))`"
             ),
             "{extras}"
         );
@@ -691,7 +687,7 @@ mod tests {
     fn sanitize_ident_replaces_invalid_characters() {
         assert_eq!(sanitize_ident("user id"), "user_id");
         assert_eq!(sanitize_ident("2fa"), "_2fa");
-        assert_eq!(sanitize_ident("crée\"le"), "cr_e_le");
+        assert_eq!(sanitize_ident("café\"au"), "caf__au");
     }
 
     #[test]

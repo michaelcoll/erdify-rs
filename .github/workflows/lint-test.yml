@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           components: rustfmt, clippy
 
@@ -27,7 +27,7 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
 
-    container: rust:1-bullseye
+    container: rust:1-bookworm
 
     services:
       postgres:
@@ -44,9 +44,10 @@ jobs:
       - uses: actions/checkout@v7
       - run: echo "DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres" > .env
 
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           components: llvm-tools
+          cache-key: rust-1-bookworm
 
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: taiki-e/install-action@nextest

@@ -1,4 +1,4 @@
-//! Schema extraction from the PostgreSQL system catalog.
+//! Schema extraction from the `PostgreSQL` system catalog.
 
 use crate::config::ConnectionInfo;
 use crate::errors::ErdifyError;
@@ -67,7 +67,7 @@ fn table_kind(relkind: &str) -> TableKind {
     }
 }
 
-/// Connection to the PostgreSQL database with a timeout.
+/// Connection to the `PostgreSQL` database with a timeout.
 ///
 /// # Errors
 ///
@@ -447,7 +447,7 @@ fn warn_missing_tables(requested: &[&str], found: &[Table]) {
 
 /// Verifies at compile time that the query parameters remain `ToSql`.
 const _: fn() = || {
-    fn assert_to_sql<T: ToSql + Sync>() {}
+    const fn assert_to_sql<T: ToSql + Sync>() {}
     assert_to_sql::<Vec<Oid>>();
     assert_to_sql::<Option<Vec<&str>>>();
 };

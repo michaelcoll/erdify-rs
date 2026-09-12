@@ -41,7 +41,7 @@ pub struct Column {
     pub name: String,
     pub data_type: String,
     /// Raw `DEFAULT` expression, if any. Never set for views or materialized
-    /// views: PostgreSQL doesn't allow column defaults on them.
+    /// views: `PostgreSQL` doesn't allow column defaults on them.
     pub default: Option<String>,
 }
 

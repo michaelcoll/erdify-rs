@@ -33,3 +33,17 @@
 ## Instructions
 
 - **Mise & Workflow**: [mise.instructions.md](.agents/mise.instructions.md)
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues on `michaelcoll/erdify-rs`, driven by the `gh` CLI. See [issue-tracker.md](docs/agents/issue-tracker.md).
+
+### Triage labels
+
+The five canonical triage roles, each label string equal to its name. See [triage-labels.md](docs/agents/triage-labels.md).
+
+### Domain docs
+
+Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See [domain.md](docs/agents/domain.md).

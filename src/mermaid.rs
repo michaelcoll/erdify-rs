@@ -36,7 +36,9 @@ pub fn render_all(tables: &[Table], mode: OutputMode, args: &Args, database: &st
     output.push_str("```mermaid\nerDiagram\n");
 
     for table in tables {
-        let name = names.get(&table.key()).expect("registered entity");
+        let Some(name) = names.get(&table.key()) else {
+            continue;
+        };
         output.push_str(&render_entity(table, name, mode));
     }
 
@@ -375,7 +377,7 @@ fn quote_if_needed(raw: &str) -> String {
     }
 }
 
-/// Normalizes a PostgreSQL type into a Mermaid attribute type.
+/// Normalizes a `PostgreSQL` type into a Mermaid attribute type.
 ///
 /// Spaces and commas (`character varying`, `numeric(10,2)`) aren't accepted
 /// by the grammar and are replaced with `_`. An empty type is rendered as

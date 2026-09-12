@@ -1,4 +1,4 @@
-//! Generates Mermaid ER diagrams from a PostgreSQL database.
+//! Generates Mermaid ER diagrams from a `PostgreSQL` database.
 
 pub mod config;
 pub mod db;
@@ -14,7 +14,7 @@ use std::io::Write as _;
 ///
 /// # Errors
 ///
-/// Returns an [ErdifyError] if the url is invalid, if the connection or a
+/// Returns an [`ErdifyError`] if the url is invalid, if the connection or a
 /// query fails, if no table matches the filters, or if writing the output
 /// file fails.
 pub async fn run(args: Args) -> Result<(), ErdifyError> {

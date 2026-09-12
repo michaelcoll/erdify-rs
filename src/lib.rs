@@ -3,6 +3,7 @@
 pub mod config;
 pub mod db;
 pub mod errors;
+pub mod lock;
 pub mod mermaid;
 pub mod outcome;
 pub mod schema;
@@ -34,6 +35,17 @@ pub async fn run(args: Args) -> Result<Outcome, ErdifyError> {
 
     if tables.is_empty() {
         return Err(ErdifyError::NoTablesFound);
+    }
+
+    if let Some(lock_path) = &args.lock {
+        lock::write_lock_file(
+            std::path::Path::new(lock_path),
+            &tables,
+            &schema_filters,
+            &table_filters,
+            &ignore_tables,
+        )
+        .await?;
     }
 
     let output = mermaid::render_all(&tables, mode, &args, &url_info.database);
@@ -137,6 +149,38 @@ mod tests {
         assert!(content.contains("widgets"));
 
         tokio::fs::remove_file(&out_path).await.ok();
+    }
+
+    #[tokio::test]
+    async fn run_writes_the_lock_file_when_requested() {
+        setup_schema(
+            "erdify_test_run_lock",
+            "CREATE TABLE erdify_test_run_lock.widgets (id serial PRIMARY KEY, name text NOT NULL);",
+        )
+        .await;
+
+        let lock_path =
+            std::env::temp_dir().join(format!("erdify_test_run_lock_{}.lock", std::process::id()));
+
+        let args = Args::parse_from([
+            "erdify",
+            "--url",
+            &test_url(),
+            "--schema",
+            "erdify_test_run_lock",
+            "--lock",
+            lock_path.to_str().unwrap(),
+        ]);
+
+        let outcome = run(args).await.expect("run succeeds");
+        assert_eq!(outcome, Outcome::Success);
+
+        let content = tokio::fs::read_to_string(&lock_path)
+            .await
+            .expect("lock file written");
+        assert!(content.contains("hash"));
+
+        tokio::fs::remove_file(&lock_path).await.ok();
     }
 
     #[tokio::test]

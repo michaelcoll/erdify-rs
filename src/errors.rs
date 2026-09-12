@@ -20,12 +20,6 @@ pub enum ErdifyError {
     ConnectionTimeout,
 }
 
-impl From<tokio_postgres::error::Error> for ErdifyError {
-    fn from(err: tokio_postgres::error::Error) -> Self {
-        Self::DatabaseConnection(err.to_string())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

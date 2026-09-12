@@ -38,6 +38,10 @@ pub struct Args {
     /// Diagram title (default: derived from the database name)
     #[arg(long)]
     pub title: Option<String>,
+
+    /// Write the schema hash to a lock file (default path: `./erdify.lock`)
+    #[arg(long, num_args = 0..=1, default_missing_value = crate::lock::DEFAULT_LOCK_PATH)]
+    pub lock: Option<String>,
 }
 
 /// Connection information extracted from a `PostgreSQL` URL.
@@ -278,6 +282,24 @@ mod tests {
     }
 
     #[test]
+    fn test_lock_absent_by_default() {
+        let args = Args::parse_from(["erdify"]);
+        assert_eq!(args.lock, None);
+    }
+
+    #[test]
+    fn test_lock_defaults_path_when_given_no_value() {
+        let args = Args::parse_from(["erdify", "--lock"]);
+        assert_eq!(args.lock.as_deref(), Some("erdify.lock"));
+    }
+
+    #[test]
+    fn test_lock_uses_given_path() {
+        let args = Args::parse_from(["erdify", "--lock", "custom/schema.lock"]);
+        assert_eq!(args.lock.as_deref(), Some("custom/schema.lock"));
+    }
+
+    #[test]
     fn test_parse_url_no_url_no_env() {
         // Save and restore DATABASE_URL to avoid side effects.
         let orig = env::var("DATABASE_URL").ok();
@@ -299,5 +321,34 @@ mod tests {
                 env::set_var("DATABASE_URL", val);
             }
         }
+    }
+
+    #[test]
+    fn test_parse_url_falls_back_to_env_var() {
+        let orig = env::var("DATABASE_URL").ok();
+        // SAFETY: no other test reads `DATABASE_URL` while it is set, and
+        // the original value is restored below.
+        unsafe {
+            env::set_var("DATABASE_URL", "postgresql://user@localhost:5432/from_env");
+        }
+
+        let args = Args::parse_from(["erdify"]);
+        let info = args.parse_url().unwrap();
+        assert_eq!(info.database, "from_env");
+
+        // Restore.
+        unsafe {
+            match &orig {
+                Some(val) => env::set_var("DATABASE_URL", val),
+                None => env::remove_var("DATABASE_URL"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_url_rejects_unknown_scheme() {
+        let args = Args::parse_from(["erdify", "--url", "mysql://user@localhost:5432/mydb"]);
+        let err = args.parse_url().unwrap_err();
+        assert!(matches!(err, ErdifyError::InvalidUrl(_)));
     }
 }

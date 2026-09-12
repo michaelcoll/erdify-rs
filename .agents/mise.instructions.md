@@ -32,6 +32,8 @@ mise run setup         # One-time: fetch cargo dependencies
 ### Test
 
 - `mise run test`, i.e. `cargo nextest run --status-level slow`
+- Some tests (`db.rs`, `lib.rs`) are integration tests requiring a real PostgreSQL instance. `mise run test` depends on `test-db-up`, which starts/reuses a `erdify-test-db` Docker container (port 5433) automatically — Docker must be running.
+- `mise run test-db-down` stops and removes that container when you're done.
 
 ### Coverage
 

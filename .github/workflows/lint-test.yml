@@ -40,9 +40,16 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+    env:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres
+      TEST_DB_HOST: postgres
+      TEST_DB_PORT: "5432"
+      TEST_DB_NAME: postgres
+      TEST_DB_USER: postgres
+      TEST_DB_PASSWORD: postgres
+
     steps:
       - uses: actions/checkout@v7
-      - run: echo "DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres" > .env
 
       - uses: actions-rust-lang/setup-rust-toolchain@v2
         with:

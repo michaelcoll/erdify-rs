@@ -728,4 +728,136 @@ mod tests {
         // Ne panique pas : le message est écrit sur stderr, sans valeur de retour à vérifier.
         warn_missing_tables(&["users", "ghost"], &[table]);
     }
+
+    // --- Integration tests requiring a real PostgreSQL instance ---
+
+    use crate::test_support::test_connection_info;
+
+    async fn setup_schema(schema: &str, ddl: &str) -> Client {
+        let client = connect(&test_connection_info())
+            .await
+            .expect("connect to test database");
+        client
+            .batch_execute(&format!(
+                "DROP SCHEMA IF EXISTS {schema} CASCADE; CREATE SCHEMA {schema}; {ddl}"
+            ))
+            .await
+            .expect("set up test schema");
+        client
+    }
+
+    #[tokio::test]
+    async fn connect_and_ping_succeed() {
+        let client = connect(&test_connection_info()).await.expect("connect");
+        ping(&client).await.expect("ping");
+    }
+
+    #[tokio::test]
+    async fn connect_fails_with_wrong_password() {
+        let mut info = test_connection_info();
+        info.password = "definitely-wrong".to_string();
+
+        let err = connect(&info).await.unwrap_err();
+
+        assert!(matches!(err, ErdifyError::DatabaseConnection(_)));
+    }
+
+    #[tokio::test]
+    async fn fetch_tables_returns_empty_for_unknown_schema() {
+        let client = connect(&test_connection_info()).await.expect("connect");
+
+        let tables = fetch_tables(&client, &["erdify_no_such_schema_xyz"], &[], &[])
+            .await
+            .expect("query succeeds");
+
+        assert!(tables.is_empty());
+    }
+
+    #[tokio::test]
+    async fn fetch_tables_assembles_full_metadata() {
+        let client = setup_schema(
+            "erdify_test_db_full",
+            "\
+            CREATE TABLE erdify_test_db_full.parent ( \
+                id serial PRIMARY KEY, \
+                name text NOT NULL, \
+                email text UNIQUE, \
+                created_at timestamp NOT NULL DEFAULT now() \
+            ); \
+            CREATE TABLE erdify_test_db_full.child ( \
+                id serial PRIMARY KEY, \
+                parent_id integer NOT NULL REFERENCES erdify_test_db_full.parent(id), \
+                amount integer CHECK (amount > 0) \
+            ); \
+            CREATE INDEX idx_child_amount ON erdify_test_db_full.child (amount); \
+            CREATE VIEW erdify_test_db_full.parent_view AS SELECT id, name FROM erdify_test_db_full.parent; \
+            CREATE MATERIALIZED VIEW erdify_test_db_full.child_mat AS SELECT id, amount FROM erdify_test_db_full.child;",
+        )
+        .await;
+
+        let tables = fetch_tables(&client, &["erdify_test_db_full"], &[], &[])
+            .await
+            .expect("query succeeds");
+
+        let find = |name: &str| tables.iter().find(|t| t.name == name).unwrap();
+
+        let parent = find("parent");
+        assert_eq!(parent.kind, TableKind::Table);
+        assert_eq!(parent.primary_keys, vec!["id".to_string()]);
+        assert!(parent.not_null_cols.contains("name"));
+        assert!(parent.not_null_cols.contains("created_at"));
+        assert_eq!(parent.unique_constraints.len(), 1);
+        assert_eq!(
+            parent.unique_constraints[0].columns,
+            vec!["email".to_string()]
+        );
+        let created_at = parent
+            .columns
+            .iter()
+            .find(|c| c.name == "created_at")
+            .unwrap();
+        assert_eq!(created_at.default.as_deref(), Some("now()"));
+
+        let child = find("child");
+        assert_eq!(child.foreign_keys.len(), 1);
+        assert_eq!(child.foreign_keys[0].to_table, "parent");
+        assert_eq!(
+            child.foreign_keys[0].from_columns,
+            vec!["parent_id".to_string()]
+        );
+        assert_eq!(child.check_constraints.len(), 1);
+        assert!(child.check_constraints[0].definition.contains("amount"));
+        assert_eq!(child.indexes.len(), 1);
+        assert_eq!(child.indexes[0].name, "idx_child_amount");
+        assert!(!child.indexes[0].is_unique);
+
+        let parent_view = find("parent_view");
+        assert_eq!(parent_view.kind, TableKind::View);
+
+        let child_mat = find("child_mat");
+        assert_eq!(child_mat.kind, TableKind::MaterializedView);
+    }
+
+    #[tokio::test]
+    async fn fetch_tables_applies_table_and_ignore_filters() {
+        let client = setup_schema(
+            "erdify_test_db_filters",
+            "\
+            CREATE TABLE erdify_test_db_filters.kept (id serial PRIMARY KEY); \
+            CREATE TABLE erdify_test_db_filters.dropped (id serial PRIMARY KEY);",
+        )
+        .await;
+
+        let tables = fetch_tables(&client, &["erdify_test_db_filters"], &["kept"], &[])
+            .await
+            .expect("query succeeds");
+        assert_eq!(tables.len(), 1);
+        assert_eq!(tables[0].name, "kept");
+
+        let tables = fetch_tables(&client, &["erdify_test_db_filters"], &[], &["dropped"])
+            .await
+            .expect("query succeeds");
+        assert_eq!(tables.len(), 1);
+        assert_eq!(tables[0].name, "kept");
+    }
 }

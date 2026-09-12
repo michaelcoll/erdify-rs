@@ -1,12 +1,13 @@
 use crate::errors::ErdifyError;
 use clap::Parser;
+use std::borrow::Cow;
 use std::env;
 
-/// Mermaid ER diagram generator from PostgreSQL.
+/// `Mermaid` ER diagram generator from `PostgreSQL`.
 #[derive(Parser, Debug)]
 #[command(name = "erdify", version, about)]
 pub struct Args {
-    /// PostgreSQL connection URL (ex: postgresql://user:pass@host:5432/dbname)
+    /// `PostgreSQL` connection URL (ex: `postgresql://user:pass@host:5432/dbname`)
     #[arg(short, long)]
     pub url: Option<String>,
 
@@ -14,11 +15,11 @@ pub struct Args {
     #[arg(long)]
     pub schema: Option<String>,
 
-    /// Tables to include, comma-separated (ex: users,orders)
+    /// Tables to include, comma-separated (ex: `users,orders`)
     #[arg(long, conflicts_with = "ignore_tables")]
     pub table: Option<String>,
 
-    /// Tables to exclude, comma-separated (ex: logs,audit_trail)
+    /// Tables to exclude, comma-separated (ex: `logs,audit_trail`)
     #[arg(long, conflicts_with = "table")]
     pub ignore_tables: Option<String>,
 
@@ -39,7 +40,7 @@ pub struct Args {
     pub title: Option<String>,
 }
 
-/// Connection information extracted from a PostgreSQL URL.
+/// Connection information extracted from a `PostgreSQL` URL.
 #[derive(Debug)]
 pub struct ConnectionInfo {
     pub host: String,
@@ -51,11 +52,12 @@ pub struct ConnectionInfo {
 
 impl Args {
     /// Parses comma-separated values into a vector of &str.
+    #[must_use]
     pub fn parse_csv<'a>(&self, value: Option<&'a str>) -> Vec<&'a str> {
         match value {
             Some(v) if !v.is_empty() => v
                 .split(',')
-                .map(|s| s.trim())
+                .map(str::trim)
                 .filter(|s| !s.is_empty())
                 .collect(),
             _ => Vec::new(),
@@ -63,7 +65,8 @@ impl Args {
     }
 
     /// Determines the output mode.
-    pub fn output_mode(&self) -> OutputMode {
+    #[must_use]
+    pub const fn output_mode(&self) -> OutputMode {
         if self.minimal {
             OutputMode::Minimal
         } else if self.full {
@@ -73,7 +76,12 @@ impl Args {
         }
     }
 
-    /// Builds ConnectionInfo from --url or DATABASE_URL.
+    /// Builds `ConnectionInfo` from `--url` or `DATABASE_URL`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ErdifyError::InvalidUrl`] if no URL is provided and
+    /// `DATABASE_URL` is unset or empty, or if the URL can't be parsed.
     pub fn parse_url(&self) -> Result<ConnectionInfo, ErdifyError> {
         let url_str = match &self.url {
             Some(u) if !u.is_empty() => Some(u.clone()),
@@ -96,10 +104,10 @@ impl Args {
     }
 }
 
-/// Default PostgreSQL port, used when the url doesn't specify one.
+/// Default `PostgreSQL` port, used when the url doesn't specify one.
 const DEFAULT_PORT: u16 = 5432;
 
-/// Parses a PostgreSQL URL in the `postgresql://user:pass@host:port/dbname` format.
+/// Parses a `PostgreSQL` URL in the `postgresql://user:pass@host:port/dbname` format.
 fn parse_postgres_url(url: &str) -> Result<ConnectionInfo, ErdifyError> {
     let url = url::Url::parse(url)
         .map_err(|e| ErdifyError::InvalidUrl(format!("invalid url format: {e}")))?;
@@ -146,7 +154,7 @@ fn parse_postgres_url(url: &str) -> Result<ConnectionInfo, ErdifyError> {
 fn percent_decode(raw: &str) -> String {
     percent_encoding::percent_decode_str(raw)
         .decode_utf8()
-        .map_or_else(|_| raw.to_string(), |s| s.into_owned())
+        .map_or_else(|_| raw.to_string(), Cow::into_owned)
 }
 
 /// Diagram output mode.
@@ -273,6 +281,8 @@ mod tests {
     fn test_parse_url_no_url_no_env() {
         // Save and restore DATABASE_URL to avoid side effects.
         let orig = env::var("DATABASE_URL").ok();
+        // SAFETY: no other test reads `DATABASE_URL` while it is removed, and
+        // the original value is restored below.
         unsafe {
             env::remove_var("DATABASE_URL");
         }
@@ -283,6 +293,8 @@ mod tests {
 
         // Restore.
         if let Some(val) = orig {
+            // SAFETY: restores the environment to its original state; no
+            // concurrent reader of `DATABASE_URL` exists in the test suite.
             unsafe {
                 env::set_var("DATABASE_URL", val);
             }

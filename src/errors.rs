@@ -18,9 +18,6 @@ pub enum ErdifyError {
 
     #[error("connection timeout (10s exceeded)")]
     ConnectionTimeout,
-
-    #[error("no valid schema found")]
-    NoValidSchemas,
 }
 
 impl From<tokio_postgres::error::Error> for ErdifyError {
@@ -64,12 +61,6 @@ mod tests {
     fn connection_timeout_has_a_fixed_message() {
         let err = ErdifyError::ConnectionTimeout;
         assert_eq!(err.to_string(), "connection timeout (10s exceeded)");
-    }
-
-    #[test]
-    fn no_valid_schemas_has_a_fixed_message() {
-        let err = ErdifyError::NoValidSchemas;
-        assert_eq!(err.to_string(), "no valid schema found");
     }
 
     #[test]

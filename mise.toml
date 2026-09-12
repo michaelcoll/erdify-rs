@@ -42,9 +42,11 @@ run = "docker rm -f erdify-test-db"
 [tasks.test]
 description = "Runs the tests"
 depends = ["test-db-up"]
+sources = ["src/**/*.rs", "Cargo.toml", "Cargo.lock"]
 run = "cargo nextest run --status-level slow --no-tests warn"
 
 [tasks.lint-clippy]
+sources = ["src/**/*.rs", "Cargo.toml", "Cargo.lock"]
 run = "cargo clippy --locked --workspace --all-features --all-targets -- -A dead_code -D clippy::all"
 hide = true
 

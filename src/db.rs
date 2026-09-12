@@ -654,6 +654,48 @@ mod tests {
     }
 
     #[test]
+    fn assemble_tables_ignores_constraints_of_unknown_tables() {
+        let rows = vec![table_row(1, "public", "users")];
+        let constraints = vec![ConstraintRow {
+            table_oid: 999,
+            name: "ghost_pkey".to_string(),
+            kind: "p".to_string(),
+            columns: vec!["id".to_string()],
+            ref_schema: None,
+            ref_table: None,
+            ref_columns: Vec::new(),
+            definition: String::new(),
+        }];
+
+        let tables = assemble_tables(rows, Vec::new(), constraints, Vec::new());
+
+        assert!(tables[0].primary_keys.is_empty());
+    }
+
+    #[test]
+    fn assemble_tables_ignores_unknown_constraint_kinds() {
+        let rows = vec![table_row(1, "public", "orders")];
+        let constraints = vec![ConstraintRow {
+            table_oid: 1,
+            name: "orders_trigger".to_string(),
+            kind: "t".to_string(),
+            columns: Vec::new(),
+            ref_schema: None,
+            ref_table: None,
+            ref_columns: Vec::new(),
+            definition: String::new(),
+        }];
+
+        let tables = assemble_tables(rows, Vec::new(), constraints, Vec::new());
+        let table = &tables[0];
+
+        assert!(table.primary_keys.is_empty());
+        assert!(table.foreign_keys.is_empty());
+        assert!(table.unique_constraints.is_empty());
+        assert!(table.check_constraints.is_empty());
+    }
+
+    #[test]
     fn assemble_tables_attaches_indexes() {
         let rows = vec![table_row(1, "public", "users")];
         let indexes = vec![IndexRow {
@@ -859,5 +901,24 @@ mod tests {
             .expect("query succeeds");
         assert_eq!(tables.len(), 1);
         assert_eq!(tables[0].name, "kept");
+    }
+
+    #[tokio::test]
+    async fn fetch_tables_scans_all_schemas_when_none_requested() {
+        let client = setup_schema(
+            "erdify_test_db_all_schemas",
+            "CREATE TABLE erdify_test_db_all_schemas.widgets (id serial PRIMARY KEY);",
+        )
+        .await;
+
+        let tables = fetch_tables(&client, &[], &[], &[])
+            .await
+            .expect("query succeeds");
+
+        assert!(
+            tables
+                .iter()
+                .any(|t| t.schema == "erdify_test_db_all_schemas" && t.name == "widgets")
+        );
     }
 }

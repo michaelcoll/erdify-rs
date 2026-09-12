@@ -23,8 +23,25 @@ run = "cargo clean"
 description = "Setups the project for development"
 run = "cargo fetch"
 
+[tasks.test-db-up]
+description = "Starts the local PostgreSQL container used by the DB-backed tests"
+run = """
+docker start erdify-test-db 2>/dev/null 1>&2 \
+  || docker run -d --name erdify-test-db \
+       -e POSTGRES_PASSWORD=password \
+       -e POSTGRES_DB=postgres \
+       -p 5433:5432 \
+       postgres:18 1>&2
+until docker exec erdify-test-db pg_isready -U postgres >/dev/null 2>&1; do sleep 0.5; done
+"""
+
+[tasks.test-db-down]
+description = "Stops and removes the local PostgreSQL test container"
+run = "docker rm -f erdify-test-db"
+
 [tasks.test]
 description = "Runs the tests"
+depends = ["test-db-up"]
 run = "cargo nextest run --status-level slow --no-tests warn"
 
 [tasks.lint-clippy]
@@ -55,4 +72,5 @@ run = "cargo run --"
 
 [tasks.coverage-backend]
 description = "Runs the backend tests with coverage"
+depends = ["test-db-up"]
 run = "cargo llvm-cov nextest --status-level slow --locked --workspace --all-features --tests --ignore-filename-regex \"main.rs\" --lcov --output-path lcov.info"

@@ -40,8 +40,12 @@ pub struct Args {
     pub title: Option<String>,
 
     /// Write the schema hash to a lock file (default path: `./erdify.lock`)
-    #[arg(long, num_args = 0..=1, default_missing_value = crate::lock::DEFAULT_LOCK_PATH)]
+    #[arg(long, num_args = 0..=1, default_missing_value = crate::lock::DEFAULT_LOCK_PATH, conflicts_with = "check")]
     pub lock: Option<String>,
+
+    /// Verify the schema against a lock file, without writing anything (default path: `./erdify.lock`)
+    #[arg(long, num_args = 0..=1, default_missing_value = crate::lock::DEFAULT_LOCK_PATH, conflicts_with = "lock")]
+    pub check: Option<String>,
 }
 
 /// Connection information extracted from a `PostgreSQL` URL.
@@ -297,6 +301,30 @@ mod tests {
     fn test_lock_uses_given_path() {
         let args = Args::parse_from(["erdify", "--lock", "custom/schema.lock"]);
         assert_eq!(args.lock.as_deref(), Some("custom/schema.lock"));
+    }
+
+    #[test]
+    fn test_check_absent_by_default() {
+        let args = Args::parse_from(["erdify"]);
+        assert_eq!(args.check, None);
+    }
+
+    #[test]
+    fn test_check_defaults_path_when_given_no_value() {
+        let args = Args::parse_from(["erdify", "--check"]);
+        assert_eq!(args.check.as_deref(), Some("erdify.lock"));
+    }
+
+    #[test]
+    fn test_check_uses_given_path() {
+        let args = Args::parse_from(["erdify", "--check", "custom/schema.lock"]);
+        assert_eq!(args.check.as_deref(), Some("custom/schema.lock"));
+    }
+
+    #[test]
+    fn test_lock_and_check_conflict() {
+        let result = Args::try_parse_from(["erdify", "--lock", "--check"]);
+        assert!(result.is_err());
     }
 
     #[test]

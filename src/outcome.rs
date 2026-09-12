@@ -4,9 +4,8 @@
 /// Outcome of a successful run, carrying the process exit code it maps to.
 ///
 /// [`Outcome::SchemaChanged`], [`Outcome::LockFileMissing`] and
-/// [`Outcome::Incomparable`] are reserved for the `--check` flow and are not
-/// produced yet; they exist so the exit-code table from the `erdify.lock`
-/// contract is fully expressible ahead of that implementation.
+/// [`Outcome::Incomparable`] are produced by the `--check` flow; see
+/// [`crate::lock::check`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Outcome {
     /// The run completed normally (diagram generated, or schema unchanged).

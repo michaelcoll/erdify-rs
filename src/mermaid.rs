@@ -681,6 +681,28 @@ mod tests {
     }
 
     #[test]
+    fn duplicate_relationship_edge_is_drawn_only_once() {
+        let mut orders = mock_orders();
+        let fk = orders.foreign_keys[0].clone();
+        // A second, differently-named FK constraint covering the same
+        // columns and target: the resulting edge is identical, so it must
+        // not be duplicated in the diagram.
+        orders.foreign_keys.push(ForeignKey {
+            name: "fk_orders_user_duplicate".to_string(),
+            ..fk
+        });
+        let tables = vec![mock_users(), orders];
+        let names = tables
+            .iter()
+            .map(|t| (t.key(), t.name.clone()))
+            .collect::<HashMap<_, _>>();
+
+        let result = render_relationships(&tables, &names);
+
+        assert_eq!(result, "    users ||--o{ orders : \"user_id\"\n");
+    }
+
+    #[test]
     fn relationship_to_filtered_out_table_is_skipped() {
         let tables = vec![mock_orders()];
         let names = tables
@@ -895,6 +917,7 @@ mod tests {
         assert_eq!(sanitize_type("\"MyEnum\""), "MyEnum");
         assert_eq!(sanitize_type(""), "unknown");
         assert_eq!(sanitize_type("   "), "unknown");
+        assert_eq!(sanitize_type("123abc"), "_123abc");
     }
 
     #[test]
@@ -902,6 +925,14 @@ mod tests {
         assert_eq!(sanitize_ident("user id"), "user_id");
         assert_eq!(sanitize_ident("2fa"), "_2fa");
         assert_eq!(sanitize_ident("café\"au"), "caf__au");
+        assert_eq!(sanitize_ident(""), "_");
+    }
+
+    #[test]
+    fn title_falls_back_to_database_name_when_no_tables() {
+        let result = generate_title(&args(), "db", &[]);
+
+        assert_eq!(result, "db");
     }
 
     #[test]

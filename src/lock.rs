@@ -171,6 +171,190 @@ async fn read_existing_hash(path: &Path) -> Option<String> {
     })
 }
 
+/// Parses the TOML layout written by [`LockFile::to_toml`].
+///
+/// Returns `None` if any expected field is missing or malformed — a
+/// deliberately loose notion of "corrupt", since a hand-edited or
+/// truncated lock file is exactly the case `--check` must recognize as
+/// incomparable rather than crash on.
+#[must_use]
+fn parse_toml(content: &str) -> Option<LockFile> {
+    let mut version = None;
+    let mut hash = None;
+    let mut schemas = None;
+    let mut tables = None;
+    let mut ignore_tables = None;
+
+    for line in content.lines() {
+        let line = line.trim();
+        if let Some(rest) = line.strip_prefix("version") {
+            version = rest
+                .trim_start()
+                .strip_prefix('=')?
+                .trim()
+                .parse::<u32>()
+                .ok();
+        } else if let Some(rest) = line.strip_prefix("hash") {
+            hash = parse_toml_string(rest.trim_start().strip_prefix('=')?.trim());
+        } else if let Some(rest) = line.strip_prefix("ignore_tables") {
+            ignore_tables = parse_toml_string_array(rest.trim_start().strip_prefix('=')?.trim());
+        } else if let Some(rest) = line.strip_prefix("tables") {
+            tables = parse_toml_string_array(rest.trim_start().strip_prefix('=')?.trim());
+        } else if let Some(rest) = line.strip_prefix("schemas") {
+            schemas = parse_toml_string_array(rest.trim_start().strip_prefix('=')?.trim());
+        }
+    }
+
+    Some(LockFile {
+        version: version?,
+        hash: hash?,
+        schemas: schemas?,
+        tables: tables?,
+        ignore_tables: ignore_tables?,
+    })
+}
+
+/// Parses a TOML basic string (`"..."`), reversing [`toml_string`].
+fn parse_toml_string(value: &str) -> Option<String> {
+    let inner = value.strip_prefix('"')?.strip_suffix('"')?;
+    let mut out = String::with_capacity(inner.len());
+    let mut chars = inner.chars();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            out.push(chars.next()?);
+        } else {
+            out.push(c);
+        }
+    }
+    Some(out)
+}
+
+/// Parses a TOML array of basic strings (`["a", "b"]`), reversing
+/// [`toml_string_array`].
+fn parse_toml_string_array(value: &str) -> Option<Vec<String>> {
+    let inner = value.strip_prefix('[')?.strip_suffix(']')?.trim();
+    if inner.is_empty() {
+        return Some(Vec::new());
+    }
+
+    let mut values = Vec::new();
+    let mut chars = inner.chars().peekable();
+    while let Some(&c) = chars.peek() {
+        if c == '"' {
+            chars.next();
+            let mut buf = String::new();
+            loop {
+                let c = chars.next()?;
+                if c == '\\' {
+                    buf.push(chars.next()?);
+                } else if c == '"' {
+                    break;
+                } else {
+                    buf.push(c);
+                }
+            }
+            values.push(buf);
+        } else if c == ',' || c.is_whitespace() {
+            chars.next();
+        } else {
+            return None;
+        }
+    }
+    Some(values)
+}
+
+/// Outcome of looking up a lock file on disk, ahead of comparing it against
+/// a freshly introspected schema.
+pub enum LockLookup {
+    /// No file (or an unreadable one) at the given path.
+    Missing,
+    /// A file exists but doesn't parse as the documented layout.
+    Corrupt,
+    /// A file exists and parses.
+    Found(LockFile),
+}
+
+/// Reads and parses the lock file at `path` for `--check`.
+///
+/// Any I/O error (missing file, permission denied, ...) is reported as
+/// [`LockLookup::Missing`]: `--check` only needs to distinguish "nothing to
+/// compare against" from "found something", not diagnose the I/O failure.
+pub async fn read_lock_file(path: &Path) -> LockLookup {
+    match tokio::fs::read_to_string(path).await {
+        Ok(content) => parse_toml(&content).map_or(LockLookup::Corrupt, LockLookup::Found),
+        Err(_) => LockLookup::Missing,
+    }
+}
+
+/// Result of comparing a looked-up lock file against a freshly introspected
+/// schema, with the actionable detail `--check` prints for a non-zero exit.
+pub enum CheckResult {
+    /// The introspected schema still hashes to the value stored in the lock.
+    Unchanged,
+    /// The introspected schema hashes differently: the schema moved.
+    Changed,
+    /// No lock file was found at the given path.
+    Missing,
+    /// The lock and the current run can't be compared; carries why.
+    Incomparable(String),
+}
+
+/// Compares a [`LockLookup`] against the hash and filters of the current
+/// run.
+///
+/// Comparability is checked before equality: an unknown format version or
+/// filters that differ from the current run yield [`CheckResult::Incomparable`],
+/// never [`CheckResult::Changed`] — a hash computed under different filters
+/// describes a different subset of the schema, so it isn't meaningfully
+/// comparable at all.
+#[must_use]
+pub fn check(
+    lookup: &LockLookup,
+    computed_hash: &str,
+    schemas: &[&str],
+    tables: &[&str],
+    ignore_tables: &[&str],
+) -> CheckResult {
+    let lock = match lookup {
+        LockLookup::Missing => return CheckResult::Missing,
+        LockLookup::Corrupt => {
+            return CheckResult::Incomparable(
+                "the lock file is corrupt or not in the expected format".to_string(),
+            );
+        }
+        LockLookup::Found(lock) => lock,
+    };
+
+    if lock.version != LOCK_FORMAT_VERSION {
+        return CheckResult::Incomparable(format!(
+            "the lock file's format version ({}) is unknown to this build (expected {LOCK_FORMAT_VERSION})",
+            lock.version
+        ));
+    }
+
+    let filters_match = str_eq(&lock.schemas, schemas)
+        && str_eq(&lock.tables, tables)
+        && str_eq(&lock.ignore_tables, ignore_tables);
+    if !filters_match {
+        return CheckResult::Incomparable(
+            "the lock file's --schema/--table/--ignore-tables filters differ from this run's"
+                .to_string(),
+        );
+    }
+
+    if lock.hash == computed_hash {
+        CheckResult::Unchanged
+    } else {
+        CheckResult::Changed
+    }
+}
+
+/// Compares a `Vec<String>` against a `&[&str]` for equality, element by
+/// element and in order.
+fn str_eq(stored: &[String], current: &[&str]) -> bool {
+    stored.len() == current.len() && stored.iter().zip(current).all(|(s, c)| s == c)
+}
+
 /// Writes the lock file at `path` from the introspected `tables` and the
 /// filters used to obtain them.
 ///
@@ -526,5 +710,149 @@ mod tests {
         ));
         std::fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    fn sample_lock() -> LockFile {
+        LockFile::new("sha256:abc".to_string(), &["public"], &[], &["audit_trail"])
+    }
+
+    #[test]
+    fn parse_toml_round_trips_to_toml() {
+        let lock = sample_lock();
+        assert_eq!(parse_toml(&lock.to_toml()), Some(lock));
+    }
+
+    #[test]
+    fn parse_toml_round_trips_escaped_values() {
+        let lock = LockFile::new(
+            "sha256:abc".to_string(),
+            &["weird\"schema"],
+            &["back\\slash"],
+            &[],
+        );
+        assert_eq!(parse_toml(&lock.to_toml()), Some(lock));
+    }
+
+    #[test]
+    fn parse_toml_rejects_missing_field() {
+        assert_eq!(parse_toml("version = 1\nhash = \"sha256:abc\"\n"), None);
+    }
+
+    #[test]
+    fn parse_toml_rejects_garbage() {
+        assert_eq!(parse_toml("this is not toml at all"), None);
+    }
+
+    #[tokio::test]
+    async fn read_lock_file_reports_missing_when_absent() {
+        let dir = tempfile_dir();
+        let path = dir.join("erdify.lock");
+
+        assert!(matches!(read_lock_file(&path).await, LockLookup::Missing));
+
+        tokio::fs::remove_dir_all(&dir).await.ok();
+    }
+
+    #[tokio::test]
+    async fn read_lock_file_reports_corrupt_when_unparseable() {
+        let dir = tempfile_dir();
+        let path = dir.join("erdify.lock");
+        tokio::fs::write(&path, "not a lock file").await.unwrap();
+
+        assert!(matches!(read_lock_file(&path).await, LockLookup::Corrupt));
+
+        tokio::fs::remove_dir_all(&dir).await.ok();
+    }
+
+    #[tokio::test]
+    async fn read_lock_file_reports_found_when_valid() {
+        let dir = tempfile_dir();
+        let path = dir.join("erdify.lock");
+        tokio::fs::write(&path, sample_lock().to_toml())
+            .await
+            .unwrap();
+
+        assert!(matches!(read_lock_file(&path).await, LockLookup::Found(_)));
+
+        tokio::fs::remove_dir_all(&dir).await.ok();
+    }
+
+    #[test]
+    fn check_reports_missing_when_no_lock_found() {
+        let result = check(&LockLookup::Missing, "sha256:abc", &["public"], &[], &[]);
+        assert!(matches!(result, CheckResult::Missing));
+    }
+
+    #[test]
+    fn check_reports_incomparable_when_corrupt() {
+        let result = check(&LockLookup::Corrupt, "sha256:abc", &["public"], &[], &[]);
+        assert!(matches!(result, CheckResult::Incomparable(_)));
+    }
+
+    #[test]
+    fn check_reports_incomparable_when_version_is_unknown() {
+        let mut lock = sample_lock();
+        lock.version = LOCK_FORMAT_VERSION + 1;
+        lock.hash = "sha256:abc".to_string();
+
+        let result = check(
+            &LockLookup::Found(lock),
+            "sha256:abc",
+            &["public"],
+            &[],
+            &["audit_trail"],
+        );
+        assert!(matches!(result, CheckResult::Incomparable(_)));
+    }
+
+    #[test]
+    fn check_reports_incomparable_when_filters_differ() {
+        let lock = sample_lock();
+
+        let result = check(
+            &LockLookup::Found(lock),
+            "sha256:abc",
+            &["public", "extended"],
+            &[],
+            &["audit_trail"],
+        );
+        assert!(matches!(result, CheckResult::Incomparable(_)));
+    }
+
+    #[test]
+    fn check_reports_incomparable_before_checking_equality() {
+        // Same hash, but filters differ: must be Incomparable, not Unchanged.
+        let lock = sample_lock();
+
+        let result = check(&LockLookup::Found(lock.clone()), &lock.hash, &[], &[], &[]);
+        assert!(matches!(result, CheckResult::Incomparable(_)));
+    }
+
+    #[test]
+    fn check_reports_unchanged_when_hash_and_filters_match() {
+        let lock = sample_lock();
+
+        let result = check(
+            &LockLookup::Found(lock.clone()),
+            &lock.hash,
+            &["public"],
+            &[],
+            &["audit_trail"],
+        );
+        assert!(matches!(result, CheckResult::Unchanged));
+    }
+
+    #[test]
+    fn check_reports_changed_when_hash_differs_but_filters_match() {
+        let lock = sample_lock();
+
+        let result = check(
+            &LockLookup::Found(lock),
+            "sha256:different",
+            &["public"],
+            &[],
+            &["audit_trail"],
+        );
+        assert!(matches!(result, CheckResult::Changed));
     }
 }

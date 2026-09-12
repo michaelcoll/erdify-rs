@@ -37,6 +37,17 @@ pub async fn run(args: Args) -> Result<Outcome, ErdifyError> {
         return Err(ErdifyError::NoTablesFound);
     }
 
+    if let Some(check_path) = &args.check {
+        return Ok(run_check(
+            std::path::Path::new(check_path),
+            &tables,
+            &schema_filters,
+            &table_filters,
+            &ignore_tables,
+        )
+        .await);
+    }
+
     if let Some(lock_path) = &args.lock {
         lock::write_lock_file(
             std::path::Path::new(lock_path),
@@ -61,6 +72,47 @@ pub async fn run(args: Args) -> Result<Outcome, ErdifyError> {
     }
 
     Ok(Outcome::Success)
+}
+
+/// Verifies the freshly introspected `tables` against the lock file at
+/// `path`, printing an actionable message for every non-zero outcome.
+async fn run_check(
+    path: &std::path::Path,
+    tables: &[schema::Table],
+    schemas: &[&str],
+    table_filters: &[&str],
+    ignore_tables: &[&str],
+) -> Outcome {
+    let computed_hash = lock::schema_hash(tables);
+    let lookup = lock::read_lock_file(path).await;
+
+    match lock::check(
+        &lookup,
+        &computed_hash,
+        schemas,
+        table_filters,
+        ignore_tables,
+    ) {
+        lock::CheckResult::Unchanged => Outcome::Success,
+        lock::CheckResult::Changed => {
+            eprintln!(
+                "schema has changed: the introspected schema no longer matches {}",
+                path.display()
+            );
+            Outcome::SchemaChanged
+        }
+        lock::CheckResult::Missing => {
+            eprintln!(
+                "no lock file found at {}; run `erdify --lock` to create one",
+                path.display()
+            );
+            Outcome::LockFileMissing
+        }
+        lock::CheckResult::Incomparable(reason) => {
+            eprintln!("cannot compare against {}: {reason}", path.display());
+            Outcome::Incomparable
+        }
+    }
 }
 
 #[cfg(test)]
@@ -201,5 +253,167 @@ mod tests {
 
         let outcome = run(args).await.expect("run succeeds");
         assert_eq!(outcome, Outcome::Success);
+    }
+
+    #[tokio::test]
+    async fn run_check_reports_unchanged_when_lock_matches() {
+        setup_schema(
+            "erdify_test_run_check_ok",
+            "CREATE TABLE erdify_test_run_check_ok.widgets (id serial PRIMARY KEY);",
+        )
+        .await;
+
+        let lock_path = std::env::temp_dir().join(format!(
+            "erdify_test_run_check_ok_{}.lock",
+            std::process::id()
+        ));
+
+        run(Args::parse_from([
+            "erdify",
+            "--url",
+            &test_url(),
+            "--schema",
+            "erdify_test_run_check_ok",
+            "--lock",
+            lock_path.to_str().unwrap(),
+        ]))
+        .await
+        .expect("lock write succeeds");
+
+        let outcome = run(Args::parse_from([
+            "erdify",
+            "--url",
+            &test_url(),
+            "--schema",
+            "erdify_test_run_check_ok",
+            "--check",
+            lock_path.to_str().unwrap(),
+        ]))
+        .await
+        .expect("check succeeds");
+
+        assert_eq!(outcome, Outcome::Success);
+
+        tokio::fs::remove_file(&lock_path).await.ok();
+    }
+
+    #[tokio::test]
+    async fn run_check_reports_schema_changed_when_hash_differs() {
+        setup_schema(
+            "erdify_test_run_check_changed",
+            "CREATE TABLE erdify_test_run_check_changed.widgets (id serial PRIMARY KEY);",
+        )
+        .await;
+
+        let lock_path = std::env::temp_dir().join(format!(
+            "erdify_test_run_check_changed_{}.lock",
+            std::process::id()
+        ));
+
+        run(Args::parse_from([
+            "erdify",
+            "--url",
+            &test_url(),
+            "--schema",
+            "erdify_test_run_check_changed",
+            "--lock",
+            lock_path.to_str().unwrap(),
+        ]))
+        .await
+        .expect("lock write succeeds");
+
+        setup_schema(
+            "erdify_test_run_check_changed",
+            "CREATE TABLE erdify_test_run_check_changed.widgets (id serial PRIMARY KEY, name text);",
+        )
+        .await;
+
+        let outcome = run(Args::parse_from([
+            "erdify",
+            "--url",
+            &test_url(),
+            "--schema",
+            "erdify_test_run_check_changed",
+            "--check",
+            lock_path.to_str().unwrap(),
+        ]))
+        .await
+        .expect("check succeeds");
+
+        assert_eq!(outcome, Outcome::SchemaChanged);
+
+        tokio::fs::remove_file(&lock_path).await.ok();
+    }
+
+    #[tokio::test]
+    async fn run_check_reports_lock_file_missing_when_absent() {
+        setup_schema(
+            "erdify_test_run_check_missing",
+            "CREATE TABLE erdify_test_run_check_missing.widgets (id serial PRIMARY KEY);",
+        )
+        .await;
+
+        let lock_path = std::env::temp_dir().join(format!(
+            "erdify_test_run_check_missing_{}.lock",
+            std::process::id()
+        ));
+        tokio::fs::remove_file(&lock_path).await.ok();
+
+        let outcome = run(Args::parse_from([
+            "erdify",
+            "--url",
+            &test_url(),
+            "--schema",
+            "erdify_test_run_check_missing",
+            "--check",
+            lock_path.to_str().unwrap(),
+        ]))
+        .await
+        .expect("check succeeds");
+
+        assert_eq!(outcome, Outcome::LockFileMissing);
+    }
+
+    #[tokio::test]
+    async fn run_check_reports_incomparable_when_filters_differ() {
+        setup_schema(
+            "erdify_test_run_check_incomp",
+            "CREATE TABLE erdify_test_run_check_incomp.widgets (id serial PRIMARY KEY);",
+        )
+        .await;
+
+        let lock_path = std::env::temp_dir().join(format!(
+            "erdify_test_run_check_incomp_{}.lock",
+            std::process::id()
+        ));
+
+        run(Args::parse_from([
+            "erdify",
+            "--url",
+            &test_url(),
+            "--schema",
+            "erdify_test_run_check_incomp",
+            "--lock",
+            lock_path.to_str().unwrap(),
+        ]))
+        .await
+        .expect("lock write succeeds");
+
+        let outcome = run(Args::parse_from([
+            "erdify",
+            "--url",
+            &test_url(),
+            // No --schema filter this time: the lock was written with one.
+            "--table",
+            "widgets",
+            "--check",
+            lock_path.to_str().unwrap(),
+        ]))
+        .await
+        .expect("check succeeds");
+
+        assert_eq!(outcome, Outcome::Incomparable);
+
+        tokio::fs::remove_file(&lock_path).await.ok();
     }
 }

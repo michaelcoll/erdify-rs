@@ -1,6 +1,5 @@
 //! `erdify.lock`: canonical schema serialization, hashing, and file I/O.
 //!
-//! See `docs/adr/0001-erdify-lock-format-and-semantics.md` and `CONTEXT.md`
 //! for why the Canonical Form is a dedicated serialization rather than the
 //! Mermaid rendering or a `serde` dump, and why the hash is conservative.
 

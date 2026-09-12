@@ -1,62 +1,25 @@
 # Mise & Development Workflow
 
-## Quick Reference
+Every command in this project runs through **mise**. Never call `cargo`, `dprint` or `docker` directly — a task may chain several tools, and calling one of them alone silently skips the rest.
 
-All local commands are run through **mise** (task runner):
-
-```
-mise install           # One-time: install tools
-mise run setup         # One-time: fetch cargo dependencies
-```
-
-## Command Summary
-
-| Action              | Command                     | Alias         |
-| ------------------- | --------------------------- | ------------- |
-| **All checks**      | `mise run checks`           | —             |
-| **Tests**           | `mise run test`             | —             |
-| **Coverage**        | `mise run coverage-backend` | —             |
-| **Lint**            | `mise run lint`             | —             |
-| **Format code**     | `mise run format`           | `mise run f`  |
-| **Build**           | `mise run build`            | `mise run bb` |
-| **Run CLI**         | `mise run run`              | —             |
-| **Clean artifacts** | `mise run clean`            | —             |
-| **Upgrade deps**    | `mise run upgrade`          | —             |
-
-## Detailed Commands
-
-### Build
-
-- **All**: `mise run build` (= `mise run bb`), i.e. `cargo build`
-
-### Test
-
-- `mise run test`, i.e. `cargo nextest run --status-level slow`
-- Some tests (`db.rs`, `lib.rs`) are integration tests requiring a real PostgreSQL instance. `mise run test` depends on `test-db-up`, which starts/reuses a `erdify-test-db` Docker container (port 5433) automatically — Docker must be running.
-- `mise run test-db-down` stops and removes that container when you're done.
-
-### Coverage
-
-- `mise run coverage-backend` → `cargo llvm-cov nextest --status-level slow --locked --workspace --all-features --tests --ignore-filename-regex "main.rs" --lcov --output-path lcov.info`
-
-### Lint
-
-- `mise run lint` → `cargo clippy --locked --workspace --all-features --all-targets -- -A dead_code -D clippy::all`
-
-### Format
-
-- `mise run format` (= `mise run f`) → `cargo fmt`
-- Always use `mise run format`, never call `cargo fmt` directly
-
-### Clean & Setup
+## Discover the tasks
 
 ```
-mise run clean          # cargo clean
-mise run setup          # cargo fetch
+mise tasks              # every task with its description
+mise tasks info <task>  # aliases, dependencies, and the commands it actually runs
 ```
 
-### Upgrade
+This is the source of truth — no task list is duplicated here, because a duplicated list goes stale.
+
+If `mise tasks` doesn't tell you what a task is for, or `mise tasks info` doesn't tell you what it does, **fix the `description` in `mise.toml`** instead of writing the explanation here.
+
+## Bootstrap
 
 ```
-mise run upgrade        # cargo update
+mise install     # install the toolchain
+mise run setup   # fetch dependencies
 ```
+
+## Notes
+
+- Docker must be running for the test and coverage tasks: they start a PostgreSQL container automatically. Stop it with `mise run test-db-down` when you're done.

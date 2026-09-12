@@ -24,7 +24,7 @@ description = "Setups the project for development"
 run = "cargo fetch"
 
 [tasks.test-db-up]
-description = "Starts the local PostgreSQL container used by the DB-backed tests"
+description = "Starts the local PostgreSQL test container erdify-test-db on port 5433 (needs Docker running)"
 run = """
 docker start erdify-test-db 2>/dev/null 1>&2 \
   || docker run -d --name erdify-test-db \
@@ -40,7 +40,7 @@ description = "Stops and removes the local PostgreSQL test container"
 run = "docker rm -f erdify-test-db"
 
 [tasks.test]
-description = "Runs the tests"
+description = "Runs the tests, starting the PostgreSQL test container first (needs Docker running)"
 depends = ["test-db-up"]
 sources = ["src/**/*.rs", "Cargo.toml", "Cargo.lock"]
 run = "cargo nextest run --status-level slow --no-tests warn"
@@ -73,6 +73,6 @@ description = "Runs the CLI"
 run = "cargo run --"
 
 [tasks.coverage-backend]
-description = "Runs the backend tests with coverage"
+description = "Runs the tests with coverage, writing lcov.info (needs Docker running)"
 depends = ["test-db-up"]
 run = "cargo llvm-cov nextest --status-level slow --locked --workspace --all-features --tests --ignore-filename-regex \"main.rs\" --lcov --output-path lcov.info"

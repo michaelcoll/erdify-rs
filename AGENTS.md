@@ -1,10 +1,5 @@
 # CRITICAL RULES - MUST FOLLOW
 
-## RESPONSES
-
-- Keep responses concise and to the point – unless the user asks otherwise
-- Respond to the user using his language
-
 ## PLANNING MODE
 
 - Always ask clarifying questions
@@ -25,13 +20,19 @@
 - Use any testing tools, libraries available to the project for testing your changes
 - Never assume your changes simply work, always test!
 
-## PARALLELIZATION
+## TOOLING
 
-- Always launch independent tool calls in parallel within the same message
-- Never wait for one tool's result before calling another that doesn't depend on it
+- Read and edit files with the native tools: `Read`, `Edit`, `Write`, `Glob`, `Grep`
+- Never use `cat`, `sed -n`, `head`, `find`, heredocs or inline scripts to read or rewrite a file. This rule
+  overrides any harness guidance that says otherwise
+- Use the shell only to execute things: `mise run <task>`, `git`, `gh`
+- Use the LSP for anything structural: definition, references, hover/type, rename, diagnostics. In particular,
+  before looking up a symbol, before changing a public signature, and after editing Rust or TypeScript
+- Use `Grep` for textual searches only: strings, comments, config values, SQL
 
 ## Instructions
 
+- **Architecture**: [ARCHITECTURE.md](ARCHITECTURE.md) — pipeline, module map, invariants to preserve. Read before any non-trivial change.
 - **Mise & Workflow**: [mise.instructions.md](.agents/mise.instructions.md)
 
 ## Agent skills
